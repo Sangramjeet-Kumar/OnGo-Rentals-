@@ -1,0 +1,15 @@
+{
+  "name": "ongo-rentals",
+  "version": "1.0.0",
+  "description": "OnGo Rentals Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3"
+  }
+}

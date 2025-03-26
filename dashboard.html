@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnGo Rentals - Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase Analytics (optional) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">
+                    <span class="circle">
+                        <i class="fas fa-car-side"></i>
+                    </span>
+                    <span class="text">OnGo</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active" data-section="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#book" class="nav-item" data-section="book">
+                    <i class="fas fa-calendar-plus"></i>
+                    <span>Book Now</span>
+                </a>
+                <a href="#history" class="nav-item" data-section="history">
+                    <i class="fas fa-history"></i>
+                    <span>History</span>
+                </a>
+                <a href="#reviews" class="nav-item" data-section="reviews">
+                    <i class="fas fa-star"></i>
+                    <span>Reviews</span>
+                </a>
+                <a href="#profile" class="nav-item" data-section="profile">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
+                </a>
+            </nav>
+            
+            <div class="logout-container">
+                <button id="logoutBtn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Dashboard Section -->
+            <section id="dashboard" class="content-section active">
+                <div class="section-header">
+                    <h1>Dashboard</h1>
+                    <p class="date">Today: <span id="currentDate"></span></p>
+                </div>
+                
+                <div class="welcome-card">
+                    <div class="welcome-text">
+                        <h2>Welcome back, <span id="userName">User</span>!</h2>
+                        <p>Here's an overview of your rental activity</p>
+                    </div>
+                    <div class="welcome-image">
+                        <img src="https://img.icons8.com/color/96/000000/driver.png" alt="Driver">
+                    </div>
+                </div>
+                
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-car"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Active Rentals</h3>
+                            <p id="activeRentals">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <i class="fas fa-road"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total Trips</h3>
+                            <p id="totalTrips">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <i class="fas fa-medal"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Loyalty Points</h3>
+                            <p id="loyaltyPoints">0</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Rating</h3>
+                            <p id="userRating">5.0</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="recent-activity">
+                    <h2>Recent Activity</h2>
+                    <div class="activity-list" id="recentActivityList">
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <i class="fas fa-car"></i>
+                            </div>
+                            <div class="activity-details">
+                                <h4>No recent activity</h4>
+                                <p>Book a car to get started!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Book Now Section -->
+            <section id="book" class="content-section">
+                <div class="section-header">
+                    <h1>Book a Vehicle</h1>
+                </div>
+                
+                <div class="booking-interface">
+                    <!-- Filters Panel -->
+                    <div class="filters-panel">
+                        <h2>Filters <button class="reset-button">Reset All</button></h2>
+                        
+                        <div class="filter-group">
+                            <label>Car Model</label>
+                            <select class="filter-dropdown">
+                                <option value="">All Models</option>
+                                <option value="alfa-romeo">Alfa Romeo</option>
+                                <option value="audi">Audi</option>
+                                <option value="bmw">BMW</option>
+                                <option value="mercedes">Mercedes-Benz</option>
+                                <option value="lexus">Lexus</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>Price Range</label>
+                            <div class="price-range">
+                                <div class="price-inputs">
+                                    <span class="price-value">$15</span>
+                                    <span class="price-value">$120</span>
+                                </div>
+                                <div class="range-slider">
+                                    <div class="track" style="width: 70%;"></div>
+                                    <div class="thumb left" style="left: 10%;"></div>
+                                    <div class="thumb right" style="left: 80%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>Vehicle Type</label>
+                            <div class="type-options">
+                                <label class="checkbox-option">
+                                    <input type="checkbox" checked> Sedan
+                                </label>
+                                <label class="checkbox-option">
+                                    <input type="checkbox"> SUV
+                                </label>
+                                <label class="checkbox-option">
+                                    <input type="checkbox"> Coupe
+                                </label>
+                                <label class="checkbox-option">
+                                    <input type="checkbox"> Hatchback
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>Color</label>
+                            <div class="color-options">
+                                <label class="color-option">
+                                    <input type="radio" name="color" checked>
+                                    <span class="color-circle black"></span>
+                                    <span>Black</span>
+                                </label>
+                                <label class="color-option">
+                                    <input type="radio" name="color">
+                                    <span class="color-circle white"></span>
+                                    <span>White</span>
+                                </label>
+                                <label class="color-option">
+                                    <input type="radio" name="color">
+                                    <span class="color-circle grey"></span>
+                                    <span>Grey</span>
+                                </label>
+                                <label class="color-option">
+                                    <input type="radio" name="color">
+                                    <span class="color-circle blue"></span>
+                                    <span>Blue</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>Availability</label>
+                            <div class="toggle-switch">
+                                <span>Show only available</span>
+                                <label class="switch">
+                                    <input type="checkbox" checked>
+                                    <span class="slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label>Rental Type</label>
+                            <div class="rental-tabs">
+                                <div class="rental-tab active">Hourly</div>
+                                <div class="rental-tab">Daily</div>
+                            </div>
+                            
+                            <div class="rental-type">
+                                <label>Pick-up Date</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-calendar"></i>
+                                    <input type="date" id="pickupDate" min="" class="filter-dropdown">
+                                </div>
+                            </div>
+                            
+                            <div class="rental-type">
+                                <label>Return Date</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-calendar-check"></i>
+                                    <input type="date" id="returnDate" min="" class="filter-dropdown">
+                                </div>
+                            </div>
+                            
+                            <div class="rental-type">
+                                <label>Location</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <select id="location" class="filter-dropdown">
+                                        <option value="">Select a location</option>
+                                        <option value="new-york">New York</option>
+                                        <option value="los-angeles">Los Angeles</option>
+                                        <option value="chicago">Chicago</option>
+                                        <option value="miami">Miami</option>
+                                        <option value="san-francisco">San Francisco</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="more-options">
+                            <span>More Options</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                    
+                    <!-- Car Listings -->
+                    <div class="car-listing">
+                        <div class="team-card">
+                            <h3>Our Premium Selection</h3>
+                            <p>Experience luxury and comfort with our carefully curated selection of premium vehicles for any occasion.</p>
+                            <button>Explore Premium</button>
+                        </div>
+                        
+                        <div class="car-list-header">
+                            <h2>Available Cars (12)</h2>
+                            <a href="#" class="view-all">View All</a>
+                        </div>
+                        
+                        <div class="cars-grid">
+                            <!-- Car Card 1 -->
+                            <div class="car-card">
+                                <div class="car-status status-new">New</div>
+                                <div class="favorite-btn">
+                                    <i class="far fa-heart"></i>
+                                </div>
+                                <div class="car-image">
+                                    <img src="https://www.pngall.com/wp-content/uploads/11/White-Sedan-PNG-Image.png" alt="Alfa Romeo Giulia">
+                                </div>
+                                <div class="car-details">
+                                    <div class="car-name">
+                                        <span class="car-model">Alfa Romeo Giulia</span>
+                                        <span class="car-year">2023</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <span class="price-amount">$45</span>
+                                        <span class="price-duration">/hour</span>
+                                    </div>
+                                    <div class="car-features">
+                                        <div class="car-feature">
+                                            <i class="fas fa-gas-pump"></i>
+                                            <span>Gasoline</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-cog"></i>
+                                            <span>Automatic</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-user-friends"></i>
+                                            <span>5 Seats</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Car Card 2 -->
+                            <div class="car-card">
+                                <div class="car-status status-available">Available</div>
+                                <div class="favorite-btn active">
+                                    <i class="fas fa-heart"></i>
+                                </div>
+                                <div class="car-image">
+                                    <img src="https://www.pngall.com/wp-content/uploads/11/Black-Sedan-PNG-Image-HD.png" alt="Alfa Romeo Stelvio">
+                                </div>
+                                <div class="car-details">
+                                    <div class="car-name">
+                                        <span class="car-model">Alfa Romeo Stelvio</span>
+                                        <span class="car-year">2023</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <span class="price-amount">$60</span>
+                                        <span class="price-duration">/hour</span>
+                                    </div>
+                                    <div class="car-features">
+                                        <div class="car-feature">
+                                            <i class="fas fa-gas-pump"></i>
+                                            <span>Gasoline</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-cog"></i>
+                                            <span>Automatic</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-user-friends"></i>
+                                            <span>5 Seats</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Car Card 3 -->
+                            <div class="car-card">
+                                <div class="car-status status-booked">Booked</div>
+                                <div class="favorite-btn">
+                                    <i class="far fa-heart"></i>
+                                </div>
+                                <div class="car-image">
+                                    <img src="https://www.pngall.com/wp-content/uploads/11/Blue-Sedan-Car-PNG-Image.png" alt="Alfa Romeo Giulia">
+                                </div>
+                                <div class="car-details">
+                                    <div class="car-name">
+                                        <span class="car-model">Alfa Romeo Giulia QV</span>
+                                        <span class="car-year">2022</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <span class="price-amount">$75</span>
+                                        <span class="price-duration">/hour</span>
+                                    </div>
+                                    <div class="car-features">
+                                        <div class="car-feature">
+                                            <i class="fas fa-gas-pump"></i>
+                                            <span>Gasoline</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-cog"></i>
+                                            <span>Automatic</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-user-friends"></i>
+                                            <span>5 Seats</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Car Card 4 -->
+                            <div class="car-card">
+                                <div class="car-status status-available">Available</div>
+                                <div class="favorite-btn">
+                                    <i class="far fa-heart"></i>
+                                </div>
+                                <div class="car-image">
+                                    <img src="https://www.pngall.com/wp-content/uploads/11/White-Car-PNG.png" alt="BMW 3 Series">
+                                </div>
+                                <div class="car-details">
+                                    <div class="car-name">
+                                        <span class="car-model">BMW 3 Series</span>
+                                        <span class="car-year">2023</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <span class="price-amount">$55</span>
+                                        <span class="price-duration">/hour</span>
+                                    </div>
+                                    <div class="car-features">
+                                        <div class="car-feature">
+                                            <i class="fas fa-gas-pump"></i>
+                                            <span>Gasoline</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-cog"></i>
+                                            <span>Automatic</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-user-friends"></i>
+                                            <span>5 Seats</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Car Card 5 -->
+                            <div class="car-card">
+                                <div class="car-status status-available">Available</div>
+                                <div class="favorite-btn">
+                                    <i class="far fa-heart"></i>
+                                </div>
+                                <div class="car-image">
+                                    <img src="https://www.pngall.com/wp-content/uploads/11/Black-SUV-PNG-Image.png" alt="Mercedes GLC">
+                                </div>
+                                <div class="car-details">
+                                    <div class="car-name">
+                                        <span class="car-model">Mercedes GLC</span>
+                                        <span class="car-year">2023</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <span class="price-amount">$65</span>
+                                        <span class="price-duration">/hour</span>
+                                    </div>
+                                    <div class="car-features">
+                                        <div class="car-feature">
+                                            <i class="fas fa-gas-pump"></i>
+                                            <span>Gasoline</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-cog"></i>
+                                            <span>Automatic</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-user-friends"></i>
+                                            <span>5 Seats</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Car Card 6 -->
+                            <div class="car-card">
+                                <div class="car-status status-new">New</div>
+                                <div class="favorite-btn">
+                                    <i class="far fa-heart"></i>
+                                </div>
+                                <div class="car-image">
+                                    <img src="https://www.pngall.com/wp-content/uploads/11/Blue-Sports-Car-PNG-Image.png" alt="Audi S5">
+                                </div>
+                                <div class="car-details">
+                                    <div class="car-name">
+                                        <span class="car-model">Audi S5 Sportback</span>
+                                        <span class="car-year">2023</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <span class="price-amount">$70</span>
+                                        <span class="price-duration">/hour</span>
+                                    </div>
+                                    <div class="car-features">
+                                        <div class="car-feature">
+                                            <i class="fas fa-gas-pump"></i>
+                                            <span>Gasoline</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-cog"></i>
+                                            <span>Automatic</span>
+                                        </div>
+                                        <div class="car-feature">
+                                            <i class="fas fa-user-friends"></i>
+                                            <span>5 Seats</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- History Section -->
+            <section id="history" class="content-section">
+                <div class="section-header">
+                    <h1>Rental History</h1>
+                </div>
+                
+                <div class="history-filters">
+                    <div class="search-bar">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search rentals...">
+                    </div>
+                    
+                    <div class="filter-options">
+                        <select id="historyFilter">
+                            <option value="all">All Rentals</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="history-table-container">
+                    <table class="history-table">
+                        <thead>
+                            <tr>
+                                <th>Vehicle</th>
+                                <th>Pickup Date</th>
+                                <th>Return Date</th>
+                                <th>Location</th>
+                                <th>Total</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody">
+                            <tr class="empty-history">
+                                <td colspan="6">No rental history found</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <!-- Reviews Section -->
+            <section id="reviews" class="content-section">
+                <div class="section-header">
+                    <h1>Reviews & Feedback</h1>
+                </div>
+                
+                <div class="reviews-container">
+                    <div class="my-reviews">
+                        <h2>My Reviews</h2>
+                        <div class="review-list" id="userReviewsList">
+                            <div class="empty-reviews">
+                                <i class="fas fa-comment-slash"></i>
+                                <p>You haven't submitted any reviews yet</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="write-review">
+                        <h2>Write a Review</h2>
+                        <div class="review-form">
+                            <div class="form-group">
+                                <label>Select Rental</label>
+                                <select id="reviewRental">
+                                    <option value="">Select a completed rental</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Rating</label>
+                                <div class="star-rating">
+                                    <i class="far fa-star" data-rating="1"></i>
+                                    <i class="far fa-star" data-rating="2"></i>
+                                    <i class="far fa-star" data-rating="3"></i>
+                                    <i class="far fa-star" data-rating="4"></i>
+                                    <i class="far fa-star" data-rating="5"></i>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Comments</label>
+                                <textarea id="reviewComments" placeholder="Share your experience..."></textarea>
+                            </div>
+                            
+                            <button id="submitReviewBtn" class="submit-review-btn">Submit Review</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Profile Section -->
+            <section id="profile" class="content-section">
+                <div class="section-header">
+                    <h1>My Profile</h1>
+                </div>
+                
+                <div class="profile-container">
+                    <div class="profile-card">
+                        <div class="profile-header">
+                            <div class="profile-avatar">
+                                <i class="fas fa-user-circle"></i>
+                            </div>
+                            <div class="profile-info">
+                                <h2 id="profileName">User Name</h2>
+                                <p id="profileEmail">user@example.com</p>
+                                <p class="member-since">Member since: <span id="memberSince">January 2023</span></p>
+                            </div>
+                        </div>
+                        
+                        <div class="profile-details">
+                            <h3>Personal Information</h3>
+                            <div class="profile-form">
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Full Name</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-user"></i>
+                                            <input type="text" id="fullName" placeholder="Your full name">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Phone Number</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-phone"></i>
+                                            <input type="tel" id="phoneNumber" placeholder="Your phone number">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Address</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-home"></i>
+                                            <input type="text" id="address" placeholder="Your address">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Driver's License</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-id-card"></i>
+                                            <input type="text" id="driversLicense" placeholder="License number">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>Preferred Payment Method</label>
+                                    <div class="input-with-icon">
+                                        <i class="fas fa-credit-card"></i>
+                                        <select id="paymentMethod">
+                                            <option value="">Select payment method</option>
+                                            <option value="credit">Credit Card</option>
+                                            <option value="debit">Debit Card</option>
+                                            <option value="paypal">PayPal</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <button id="updateProfileBtn" class="update-profile-btn">Update Profile</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="password-card">
+                        <h3>Change Password</h3>
+                        <div class="password-form">
+                            <div class="form-group">
+                                <label>Current Password</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-lock"></i>
+                                    <input type="password" id="currentPassword" placeholder="Enter current password">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>New Password</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-key"></i>
+                                    <input type="password" id="newPassword" placeholder="Enter new password">
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label>Confirm New Password</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-check-circle"></i>
+                                    <input type="password" id="confirmPassword" placeholder="Confirm new password">
+                                </div>
+                            </div>
+                            
+                            <button id="changePasswordBtn" class="change-password-btn">Change Password</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+    
+    <!-- Reset Password Form -->
+    <div class="login-form" id="resetPasswordForm">
+        <!-- ... existing content ... -->
+    </div>
+    
+    <!-- Notification Component -->
+    <div id="notification" class="notification">
+        <div class="notification-icon">
+            <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="notification-content">
+            <p id="notificationMessage">Success message here</p>
+        </div>
+        <button class="notification-close" onclick="hideNotification()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    
+    <script src="firebase-config.js"></script>
+    <script src="dashboard.js"></script>
+    <script src="book.js"></script>
+</body>
+</html> 

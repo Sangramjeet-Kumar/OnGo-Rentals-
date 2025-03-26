@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnGo Rentals</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase Analytics (optional) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+</head>
+<body>
+    <div class="background-gradient"></div>
+    <div class="animated-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+    
+    <!-- Background elements -->
+    <div id="background"></div>
+    <!-- <div class="road"></div> -->
+    
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">
+                <div class="logo-icon">
+                    <span class="circle">
+                        <i class="fas fa-car-side"></i>
+                    </span>
+                    <span class="text">OnGo</span>
+                </div>
+            </div>
+            <div class="nav-links">
+                <a href="#" class="active">Home</a>
+                <a href="#">About</a>
+                <a href="#">Offer</a>
+                <a href="#">Contact</a>
+            </div>
+            <button class="login-btn" onclick="showLoginForm('agent')">
+                <i class="fas fa-user-tie"></i> Login As Agent
+            </button>
+        </nav>
+
+        <div class="hero-section">
+            <div class="hero-content">
+                <div class="badge">Premium Car Rental Service</div>
+                <h1>OnGo Rentals</h1>
+                <p>Drive Your Dreams, Rent with Confidence</p>
+                <button class="book-now" onclick="showLoginForm('customer')">
+                    <span>BOOK NOW</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+                
+                <div class="features">
+                    <div class="feature">
+                        <i class="fas fa-check-circle"></i>
+                        <span>No Hidden Charges</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-check-circle"></i>
+                        <span>24/7 Customer Support</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Free Cancellation</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-image">
+                <img src="car.png" alt="Luxury Car" class="car-image">
+                <div class="car-shadow"></div>
+                <div class="highlight-circle"></div>
+            </div>
+        </div>
+
+        <div class="login-form" id="loginForm">
+            <div class="form-content">
+                <div class="form-header">
+                    <h2 id="loginTitle">Login</h2>
+                    <button class="close-icon" onclick="hideLoginForm()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="loginErrorMessage" class="error-message"></div>
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="email" placeholder="Enter your email" required>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <div class="input-with-icon">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" placeholder="Enter your password" required>
+                    </div>
+                </div>
+                <div class="remember-forgot">
+                    <label class="checkbox-container">
+                        <input type="checkbox" id="rememberMe">
+                        <span class="checkmark"></span>
+                        Remember me
+                    </label>
+                    <a href="#" class="forgot-link" onclick="showResetPasswordForm()">Forgot password?</a>
+                </div>
+                <button class="submit-btn" id="loginButton" onclick="handleLogin(); return false;">Login</button>
+                <div class="signup-link">
+                    Don't have an account? <a href="#" onclick="showSignupForm()">Sign up</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Signup Form -->
+    <div class="login-form" id="signupForm">
+        <div class="form-content">
+            <div class="form-header">
+                <h2>Create Account</h2>
+                <button class="close-icon" onclick="hideSignupForm()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="signupErrorMessage" class="error-message"></div>
+            <div class="input-group">
+                <label for="signupName">Full Name</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="signupName" placeholder="Enter your full name" required>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="signupEmail">Email</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="signupEmail" placeholder="Enter your email" required>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="signupPassword">Password</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="signupPassword" placeholder="Create a password" required>
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="signupConfirmPassword">Confirm Password</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="signupConfirmPassword" placeholder="Confirm your password" required>
+                </div>
+            </div>
+            <button class="submit-btn" id="signupButton" onclick="handleSignup(); return false;">Create Account</button>
+            <div class="signup-link">
+                Already have an account? <a href="#" onclick="showLoginForm('customer')">Login</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Reset Password Form -->
+    <div class="login-form" id="resetPasswordForm">
+        <div class="form-content">
+            <div class="form-header">
+                <h2>Reset Password</h2>
+                <button class="close-icon" onclick="hideResetPasswordForm()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="resetErrorMessage" class="error-message"></div>
+            <p class="reset-instructions">Enter your email address and we'll send you a link to reset your password.</p>
+            <div class="input-group">
+                <label for="resetEmail">Email</label>
+                <div class="input-with-icon">
+                    <i class="fas fa-envelope"></i>
+                    <input type="email" id="resetEmail" placeholder="Enter your email" required>
+                </div>
+            </div>
+            <button class="submit-btn" id="resetPasswordButton" onclick="handleResetPassword(); return false;">Send Reset Link</button>
+            <div class="signup-link">
+                Remember your password? <a href="#" onclick="showLoginForm('customer')">Login</a>
+            </div>
+        </div>
+    </div>
+    
+    <script src="firebase-config.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
