@@ -1,3 +1,99 @@
+// Add this at the beginning of the file, after any other initialization
+// Global flag to prevent multiple redirects
+let redirectionInProgress = false;
+
+// Use a localStorage flag instead of a variable that gets reset on page reload
+if (localStorage.getItem('isRedirecting')) {
+    console.log('Redirection flag found in localStorage, clearing it');
+    localStorage.removeItem('isRedirecting');
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded - Starting initialization');
+    
+    // Generate visual elements first, before any auth checks
+    try {
+        generateStars();
+        addBackgroundStyles();
+        addFlickerAnimation();
+        animateCar();
+        addParallaxEffect();
+        createSmokeEffect();
+    } catch (error) {
+        console.error('Error initializing visual elements:', error);
+    }
+    
+    // IMPORTANT: Only perform redirection logic on the index page
+    const onIndexPage = window.location.pathname.includes('index.html') || 
+                       window.location.pathname.endsWith('/') ||
+                       window.location.pathname === '';
+                       
+    if (onIndexPage) {
+        console.log('On index page, setting up auth state change listener for redirection');
+        
+        // Single auth state change listener for index page
+        auth.onAuthStateChanged(user => {
+            // Skip if redirection is already in progress 
+            if (redirectionInProgress || localStorage.getItem('isRedirecting')) {
+                console.log('Redirection already in progress, skipping');
+                return;
+            }
+            
+            if (user) {
+                console.log('User already logged in on index page, checking role...');
+                
+                // Set redirection flags to prevent loops
+                redirectionInProgress = true;
+                localStorage.setItem('isRedirecting', 'true');
+                
+                // Get user data from Firestore to determine role
+                db.collection('users').doc(user.uid).get()
+                    .then(doc => {
+                        if (doc.exists) {
+                            const userData = doc.data();
+                            console.log('User role found:', userData.userType);
+                            
+                            // Clear the redirection flag after a timeout if redirection failed
+                            setTimeout(() => {
+                                localStorage.removeItem('isRedirecting');
+                            }, 5000);
+                            
+                            // Redirect based on user type - use replace instead of href
+                            if (userData.userType === 'agent') {
+                                console.log('Redirecting agent to agent dashboard');
+                                window.location.replace('agent-dashboard.html');
+                            } else {
+                                console.log('Redirecting customer to customer dashboard');
+                                window.location.replace('dashboard.html');
+                            }
+                        } else {
+                            // If no user data exists, reset the flag
+                            console.error('User document does not exist');
+                            redirectionInProgress = false;
+                            localStorage.removeItem('isRedirecting');
+                            
+                            // Sign out user if no user data exists
+                            auth.signOut().then(() => {
+                                showNotification('User data not found. Please login again.', 'error');
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking user role:', error);
+                        // Reset the flag on error
+                        redirectionInProgress = false;
+                        localStorage.removeItem('isRedirecting');
+                        showNotification('Error verifying your account. Please try again.', 'error');
+                    });
+            } else {
+                console.log('No user logged in on index page - no redirection needed');
+            }
+        });
+    } else {
+        console.log('Not on index page, skipping automatic redirection on load');
+    }
+});
+
 // Generate buildings for the cityscape
 function generateCityscape() {
     const cityscape = document.getElementById('cityscape');
@@ -249,21 +345,28 @@ function showLoginForm(type) {
     const loginForm = document.getElementById('loginForm');
     const loginTitle = document.getElementById('loginTitle');
     
-    loginTitle.textContent = type === 'agent' 
-        ? 'Agent Login' 
-        : 'Customer Login';
-    
-    // Add direct onclick attribute to login button
-    const loginButton = document.getElementById('loginButton');
-    if (loginButton) {
-        loginButton.onclick = handleLogin;
+    // Set the title based on login type
+    if (type === 'agent') {
+        loginTitle.textContent = 'Agent Login';
+    } else {
+        loginTitle.textContent = 'Customer Login';
     }
     
+    // Clear any previous inputs
+    document.getElementById('email').value = '';
+    document.getElementById('password').value = '';
+    document.getElementById('rememberMe').checked = false;
+    document.getElementById('loginErrorMessage').textContent = '';
+    
+    // Show the form with animation
     loginForm.style.display = 'flex';
-    requestAnimationFrame(() => {
+    setTimeout(() => {
         loginForm.style.opacity = '1';
         loginForm.classList.add('active');
-    });
+    }, 10);
+    
+    // Focus the email field
+    document.getElementById('email').focus();
 }
 
 // Hide login form with animation
@@ -426,7 +529,11 @@ async function handleLogin() {
     const password = document.getElementById('password').value;
     const rememberMe = document.getElementById('rememberMe').checked;
     
-    console.log('Login attempt with email:', email);
+    // Track if this is an agent login
+    const isAgentLogin = document.getElementById('loginTitle') && 
+                         document.getElementById('loginTitle').textContent.includes('Agent');
+    
+    console.log('Login attempt with email:', email, 'as', isAgentLogin ? 'agent' : 'customer');
     
     if (!email || !password) {
         showError('loginErrorMessage', 'Please enter both email and password.');
@@ -439,32 +546,17 @@ async function handleLogin() {
     loginButton.disabled = true;
     
     try {
-        console.log('Attempting to sign in user...');
-        
         // Check if Firebase is initialized properly
         if (!firebase || !auth || !db) {
             throw new Error('Firebase is not properly initialized');
         }
         
         // Try to sign in
-        let userCredential;
-        try {
-            userCredential = await auth.signInWithEmailAndPassword(email, password);
-        } catch (authError) {
-            console.error('Firebase auth error:', authError);
-            throw authError;
-        }
-        
-        console.log('Sign in successful:', userCredential);
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        console.log('Sign in successful');
         
         // Get user data from Firestore
-        let userDoc;
-        try {
-            userDoc = await db.collection('users').doc(userCredential.user.uid).get();
-        } catch (firestoreError) {
-            console.error('Firestore error:', firestoreError);
-            throw firestoreError;
-        }
+        const userDoc = await db.collection('users').doc(userCredential.user.uid).get();
         
         if (!userDoc.exists) {
             console.error('User document does not exist');
@@ -472,22 +564,32 @@ async function handleLogin() {
         }
         
         const userData = userDoc.data();
-        console.log('User data retrieved:', userData);
+        
+        // Check if user type matches login attempt type
+        if (isAgentLogin && userData.userType !== 'agent') {
+            console.log('Customer attempting to log in as agent');
+            await auth.signOut();
+            showError('loginErrorMessage', 'This account does not have agent privileges.');
+            loginButton.textContent = 'Login';
+            loginButton.disabled = false;
+            return;
+        }
         
         // Login successful
         hideLoginForm();
-        
-        // Show success notification
         showNotification('Login successful! Redirecting to dashboard...', 'success');
+        
+        // Set redirection flag to prevent loops
+        localStorage.setItem('isRedirecting', 'true');
         
         // Redirect to appropriate dashboard based on user type
         setTimeout(() => {
             if (userData.userType === 'agent') {
-                window.location.href = 'agent-dashboard.html';
+                window.location.replace('agent-dashboard.html');
             } else {
-                window.location.href = 'dashboard.html';
+                window.location.replace('dashboard.html');
             }
-        }, 1500);
+        }, 1000);
     } catch (error) {
         console.error('Login error details:', error);
         
@@ -508,12 +610,8 @@ async function handleLogin() {
             case 'auth/network-request-failed':
                 errorMessage = 'Network error. Please check your internet connection.';
                 break;
-            case 'auth/internal-error':
-                errorMessage = 'An internal error occurred. Please try again later.';
-                break;
             default:
-                console.error('Login error:', error);
-                errorMessage = `An unexpected error occurred: ${error.message || error}. Please try again.`;
+                errorMessage = `Error: ${error.message || error}`;
         }
         
         showError('loginErrorMessage', errorMessage);
@@ -573,6 +671,10 @@ async function handleSignup() {
     const password = document.getElementById('signupPassword').value;
     const confirmPassword = document.getElementById('signupConfirmPassword').value;
     
+    // Track if the signup is from agent login form
+    const isAgentSignup = document.getElementById('loginTitle') && 
+                          document.getElementById('loginTitle').textContent.includes('Agent');
+    
     console.log('Signup attempt with email:', email);
     
     if (!name || !email || !password || !confirmPassword) {
@@ -598,75 +700,60 @@ async function handleSignup() {
     try {
         console.log('Attempting to create user...');
         
-        // Check if Firebase is initialized properly
-        if (!firebase || !auth || !db) {
-            throw new Error('Firebase is not properly initialized');
-        }
+        // Create user account
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        console.log('User account created:', userCredential);
         
-        // Create user in Authentication
-        let userCredential;
-        try {
-            userCredential = await auth.createUserWithEmailAndPassword(email, password);
-            console.log('User created in authentication:', userCredential.user.uid);
-        } catch (authError) {
-            console.error('Firebase auth error during signup:', authError);
-            throw authError;
-        }
+        // Update display name
+        await userCredential.user.updateProfile({
+            displayName: name
+        });
+        console.log('Display name updated');
         
-        // Save user data to Firestore
-        try {
-            await db.collection('users').doc(userCredential.user.uid).set({
-                name: name,
-                email: email,
-                userType: 'customer',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-            console.log('User data saved to Firestore');
-        } catch (firestoreError) {
-            console.error('Firestore error during signup:', firestoreError);
-            // Try to delete the auth user since Firestore failed
-            try {
-                await userCredential.user.delete();
-                console.log('Rolled back auth user creation');
-            } catch (deleteError) {
-                console.error('Failed to roll back auth user:', deleteError);
-            }
-            throw firestoreError;
-        }
+        // Determine user type based on signup source
+        const userType = isAgentSignup ? 'agent' : 'customer';
         
-        console.log('User created successfully');
+        // Add user data to Firestore
+        await db.collection('users').doc(userCredential.user.uid).set({
+            name: name,
+            email: email,
+            userType: userType,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log('User data added to Firestore');
         
-        // Signup successful
+        // Signup successful, hide form
         hideSignupForm();
         
         // Show success notification
-        showNotification('Account created successfully! You can now log in.', 'success');
+        showNotification('Account created successfully! Redirecting to dashboard...', 'success');
         
-        // Show login form after a short delay
+        // Redirect to appropriate dashboard based on user type
         setTimeout(() => {
-            showLoginForm('customer');
+            if (userType === 'agent') {
+                window.location.href = 'agent-dashboard.html';
+            } else {
+                window.location.href = 'dashboard.html';
+            }
         }, 1500);
     } catch (error) {
         console.error('Signup error details:', error);
         
-        // Handle errors
+        // Handle specific errors
         let errorMessage = 'Failed to create account. Please try again.';
         
         switch (error.code) {
             case 'auth/email-already-in-use':
-                errorMessage = 'Email is already in use. Please use a different email or login.';
+                errorMessage = 'This email is already in use. Please try another email or login.';
                 break;
             case 'auth/invalid-email':
                 errorMessage = 'Invalid email address.';
                 break;
             case 'auth/weak-password':
-                errorMessage = 'Password is too weak. Please use a stronger password.';
+                errorMessage = 'Password is too weak. Please choose a stronger password.';
                 break;
             case 'auth/network-request-failed':
                 errorMessage = 'Network error. Please check your internet connection.';
-                break;
-            case 'auth/operation-not-allowed':
-                errorMessage = 'Email/password accounts are not enabled. Please contact support.';
                 break;
             default:
                 console.error('Signup error:', error);
@@ -749,23 +836,32 @@ window.addEventListener('DOMContentLoaded', () => {
     }
     
     // CRITICAL FIX: Add direct click handlers to buttons
-    document.getElementById('loginButton').onclick = function(e) {
-        e.preventDefault();
-        console.log('Login button clicked directly');
-        handleLogin();
-    };
+    const loginButton = document.getElementById('loginButton');
+    if (loginButton) {
+        loginButton.onclick = function(e) {
+            e.preventDefault();
+            console.log('Login button clicked directly');
+            handleLogin();
+        };
+    }
     
-    document.getElementById('signupButton').onclick = function(e) {
-        e.preventDefault();
-        console.log('Signup button clicked directly');
-        handleSignup();
-    };
+    const signupButton = document.getElementById('signupButton');
+    if (signupButton) {
+        signupButton.onclick = function(e) {
+            e.preventDefault();
+            console.log('Signup button clicked directly');
+            handleSignup();
+        };
+    }
     
-    document.getElementById('resetPasswordButton').onclick = function(e) {
-        e.preventDefault(); 
-        console.log('Reset password button clicked directly');
-        handleResetPassword();
-    };
+    const resetPasswordButton = document.getElementById('resetPasswordButton');
+    if (resetPasswordButton) {
+        resetPasswordButton.onclick = function(e) {
+            e.preventDefault(); 
+            console.log('Reset password button clicked directly');
+            handleResetPassword();
+        };
+    }
     
     // Periodically regenerate shooting stars for continuous effect
     setInterval(() => {
@@ -814,40 +910,5 @@ window.addEventListener('DOMContentLoaded', () => {
                 input.parentElement.classList.remove('focused');
             }
         });
-    });
-
-    // Check if user is already logged in
-    console.log('Checking authentication state');
-    onAuthStateChanged((user) => {
-        if (user) {
-            // User is signed in
-            console.log('User is signed in:', user.email);
-            
-            // Get user data from Firestore
-            db.collection('users').doc(user.uid).get()
-                .then((doc) => {
-                    if (doc.exists) {
-                        const userData = doc.data();
-                        console.log('User data:', userData);
-                        
-                        // Update UI based on user type
-                        if (userData.userType === 'agent') {
-                            // Show agent UI
-                            console.log('Agent logged in');
-                        } else {
-                            // Show customer UI
-                            console.log('Customer logged in');
-                        }
-                    } else {
-                        console.log('No user data found in Firestore');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error getting user data:', error);
-                });
-        } else {
-            // User is signed out
-            console.log('User is signed out');
-        }
     });
 }); 

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OnGo Rentals - Agent Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="agent-dashboard.css">
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <!-- Firebase Auth -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Firebase Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <!-- Firebase Analytics (optional) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-analytics-compat.js"></script>
+    <!-- Chart.js for analytics -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <div class="sidebar">
+            <div class="logo">
+                <div class="logo-icon">
+                    <span class="circle">
+                        <i class="fas fa-car-side"></i>
+                    </span>
+                    <span class="text">OnGo</span>
+                </div>
+                <span class="agent-label">Agent Portal</span>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active" data-section="dashboard">
+                    <i class="fas fa-tachometer-alt"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#inventory" class="nav-item" data-section="inventory">
+                    <i class="fas fa-warehouse"></i>
+                    <span>Vehicle Inventory</span>
+                </a>
+                <a href="#add-vehicle" class="nav-item" data-section="add-vehicle">
+                    <i class="fas fa-plus-circle"></i>
+                    <span>Add Vehicle</span>
+                </a>
+                <a href="#current-rentals" class="nav-item" data-section="current-rentals">
+                    <i class="fas fa-key"></i>
+                    <span>Current Rentals</span>
+                </a>
+                <a href="#past-rentals" class="nav-item" data-section="past-rentals">
+                    <i class="fas fa-history"></i>
+                    <span>Past Rentals</span>
+                </a>
+                <a href="#pricing" class="nav-item" data-section="pricing">
+                    <i class="fas fa-tags"></i>
+                    <span>Pricing & Policies</span>
+                </a>
+                <a href="#reviews" class="nav-item" data-section="reviews">
+                    <i class="fas fa-star"></i>
+                    <span>Reviews & Feedback</span>
+                </a>
+                <a href="#settings" class="nav-item" data-section="settings">
+                    <i class="fas fa-cog"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+            
+            <div class="logout-container">
+                <button id="logoutBtn" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Main Content Area -->
+        <div class="main-content">
+            <!-- Dashboard Overview Section -->
+            <section id="dashboard" class="content-section active">
+                <div class="section-header">
+                    <h1>Dashboard Overview</h1>
+                    <p class="date">Today: <span id="currentDate"></span></p>
+                </div>
+                
+                <div class="welcome-card">
+                    <div class="welcome-text">
+                        <h2>Welcome back, <span id="agentName">Agent</span>!</h2>
+                        <p>Here's an overview of your rental business</p>
+                    </div>
+                    <div class="welcome-image">
+                        <img src="https://img.icons8.com/color/96/000000/manager.png" alt="Agent">
+                    </div>
+                </div>
+                
+                <div class="stats-container">
+                    <div class="stat-card">
+                        <div class="stat-icon blue">
+                            <i class="fas fa-car"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Total Vehicles</h3>
+                            <p id="totalVehicles">24</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon green">
+                            <i class="fas fa-key"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Active Rentals</h3>
+                            <p id="activeRentals">8</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon purple">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Pending Requests</h3>
+                            <p id="pendingRequests">3</p>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon orange">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <div class="stat-info">
+                            <h3>Revenue (Monthly)</h3>
+                            <p id="monthlyRevenue">₹85,450</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-charts">
+                    <div class="chart-card">
+                        <h3>Revenue Trends</h3>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                    <div class="chart-card">
+                        <h3>Vehicle Utilization</h3>
+                        <canvas id="utilizationChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="dashboard-bottom">
+                    <div class="recent-activity">
+                        <h3>Recent Activity</h3>
+                        <div class="activity-list" id="recentActivityList">
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div class="activity-details">
+                                    <h4>Rental Completed</h4>
+                                    <p>Honda City returned by Rahul Sharma</p>
+                                    <span class="activity-time">Today, 10:45 AM</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas fa-key"></i>
+                                </div>
+                                <div class="activity-details">
+                                    <h4>New Rental</h4>
+                                    <p>Hyundai Creta rented by Priya Patel</p>
+                                    <span class="activity-time">Today, 09:30 AM</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    <i class="fas fa-star"></i>
+                                </div>
+                                <div class="activity-details">
+                                    <h4>New Review</h4>
+                                    <p>5-star review received from Amit Kumar</p>
+                                    <span class="activity-time">Yesterday, 05:15 PM</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="top-vehicles">
+                        <h3>Top Performing Vehicles</h3>
+                        <div class="vehicle-list">
+                            <div class="vehicle-item">
+                                <div class="vehicle-image">
+                                    <img src="https://img.icons8.com/color/96/000000/suv.png" alt="SUV">
+                                </div>
+                                <div class="vehicle-details">
+                                    <h4>Hyundai Creta</h4>
+                                    <div class="rental-stats">
+                                        <span><i class="fas fa-key"></i> 18 rentals</span>
+                                        <span><i class="fas fa-money-bill-wave"></i> ₹45,200</span>
+                                    </div>
+                                </div>
+                                <div class="vehicle-status available">
+                                    <span>Available</span>
+                                </div>
+                            </div>
+                            <div class="vehicle-item">
+                                <div class="vehicle-image">
+                                    <img src="https://img.icons8.com/color/96/000000/sedan.png" alt="Sedan">
+                                </div>
+                                <div class="vehicle-details">
+                                    <h4>Honda City</h4>
+                                    <div class="rental-stats">
+                                        <span><i class="fas fa-key"></i> 15 rentals</span>
+                                        <span><i class="fas fa-money-bill-wave"></i> ₹38,500</span>
+                                    </div>
+                                </div>
+                                <div class="vehicle-status available">
+                                    <span>Available</span>
+                                </div>
+                            </div>
+                            <div class="vehicle-item">
+                                <div class="vehicle-image">
+                                    <img src="https://img.icons8.com/color/96/000000/motorcycle.png" alt="Motorcycle">
+                                </div>
+                                <div class="vehicle-details">
+                                    <h4>Royal Enfield Classic 350</h4>
+                                    <div class="rental-stats">
+                                        <span><i class="fas fa-key"></i> 12 rentals</span>
+                                        <span><i class="fas fa-money-bill-wave"></i> ₹18,000</span>
+                                    </div>
+                                </div>
+                                <div class="vehicle-status rented">
+                                    <span>Rented</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Vehicle Inventory Section -->
+            <section id="inventory" class="content-section">
+                <div class="section-header">
+                    <h1>Vehicle Inventory</h1>
+                    <div class="inventory-actions">
+                        <button class="action-btn add-vehicle-btn">
+                            <i class="fas fa-plus"></i> Add Vehicle
+                        </button>
+                        <div class="search-bar">
+                            <input type="text" placeholder="Search vehicles...">
+                            <i class="fas fa-search"></i>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="inventory-tabs">
+                    <button class="tab-btn active" data-tab="all">All Vehicles</button>
+                    <button class="tab-btn" data-tab="cars">Cars</button>
+                    <button class="tab-btn" data-tab="bikes">Bikes</button>
+                    <button class="tab-btn" data-tab="available">Available</button>
+                    <button class="tab-btn" data-tab="rented">Rented</button>
+                    <button class="tab-btn" data-tab="maintenance">Maintenance</button>
+                </div>
+                
+                <div class="inventory-container">
+                    <table class="inventory-table">
+                        <thead>
+                            <tr>
+                                <th>Vehicle ID</th>
+                                <th>Image</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Status</th>
+                                <th>Price/Day</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Sample data, will be populated from database -->
+                            <tr>
+                                <td>VEH-001</td>
+                                <td><img src="https://img.icons8.com/color/48/000000/suv.png" alt="SUV"></td>
+                                <td>Hyundai Creta</td>
+                                <td>SUV</td>
+                                <td><span class="status-badge available">Available</span></td>
+                                <td>₹2,500</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="edit-btn"><i class="fas fa-edit"></i></button>
+                                        <button class="view-btn"><i class="fas fa-eye"></i></button>
+                                        <button class="delete-btn"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>VEH-002</td>
+                                <td><img src="https://img.icons8.com/color/48/000000/sedan.png" alt="Sedan"></td>
+                                <td>Honda City</td>
+                                <td>Sedan</td>
+                                <td><span class="status-badge available">Available</span></td>
+                                <td>₹2,000</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="edit-btn"><i class="fas fa-edit"></i></button>
+                                        <button class="view-btn"><i class="fas fa-eye"></i></button>
+                                        <button class="delete-btn"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>VEH-003</td>
+                                <td><img src="https://img.icons8.com/color/48/000000/motorcycle.png" alt="Motorcycle"></td>
+                                <td>Royal Enfield Classic 350</td>
+                                <td>Bike</td>
+                                <td><span class="status-badge rented">Rented</span></td>
+                                <td>₹1,200</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="edit-btn"><i class="fas fa-edit"></i></button>
+                                        <button class="view-btn"><i class="fas fa-eye"></i></button>
+                                        <button class="delete-btn"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>VEH-004</td>
+                                <td><img src="https://img.icons8.com/color/48/000000/hatchback.png" alt="Hatchback"></td>
+                                <td>Maruti Swift</td>
+                                <td>Hatchback</td>
+                                <td><span class="status-badge maintenance">Maintenance</span></td>
+                                <td>₹1,800</td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <button class="edit-btn"><i class="fas fa-edit"></i></button>
+                                        <button class="view-btn"><i class="fas fa-eye"></i></button>
+                                        <button class="delete-btn"><i class="fas fa-trash"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <!-- Add Vehicle Section -->
+            <section id="add-vehicle" class="content-section">
+                <div class="section-header">
+                    <h1>Add New Vehicle</h1>
+                </div>
+                
+                <div class="form-container">
+                    <form id="addVehicleForm" class="add-vehicle-form">
+                        <div class="form-tabs">
+                            <button type="button" class="form-tab-btn active" data-type="car">Car</button>
+                            <button type="button" class="form-tab-btn" data-type="bike">Bike</button>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h3>Basic Information</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="vehicleName">Vehicle Name</label>
+                                    <input type="text" id="vehicleName" name="vehicleName" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="vehicleType">Type</label>
+                                    <select id="vehicleType" name="vehicleType" required>
+                                        <!-- Options will change based on car/bike selection -->
+                                        <option value="">Select Type</option>
+                                        <option value="SUV">SUV</option>
+                                        <option value="Sedan">Sedan</option>
+                                        <option value="Hatchback">Hatchback</option>
+                                        <option value="Luxury">Luxury</option>
+                                        <option value="Electric">Electric</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="vehicleBrand">Brand</label>
+                                    <input type="text" id="vehicleBrand" name="vehicleBrand" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="vehicleModel">Model</label>
+                                    <input type="text" id="vehicleModel" name="vehicleModel" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="vehicleYear">Year</label>
+                                    <input type="number" id="vehicleYear" name="vehicleYear" min="2000" max="2030" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="vehicleColor">Color</label>
+                                    <input type="text" id="vehicleColor" name="vehicleColor" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h3>Pricing & Availability</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="dailyRate">Daily Rate (₹)</label>
+                                    <input type="number" id="dailyRate" name="dailyRate" min="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="weeklyRate">Weekly Rate (₹)</label>
+                                    <input type="number" id="weeklyRate" name="weeklyRate" min="0" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="monthlyRate">Monthly Rate (₹)</label>
+                                    <input type="number" id="monthlyRate" name="monthlyRate" min="0" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="securityDeposit">Security Deposit (₹)</label>
+                                    <input type="number" id="securityDeposit" name="securityDeposit" min="0" required>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="availabilityStatus">Availability Status</label>
+                                    <select id="availabilityStatus" name="availabilityStatus" required>
+                                        <option value="available">Available</option>
+                                        <option value="maintenance">Maintenance</option>
+                                        <option value="rented">Rented</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="availabilityDate">Available From</label>
+                                    <input type="date" id="availabilityDate" name="availabilityDate" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h3>Vehicle Details</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="registrationNumber">Registration Number</label>
+                                    <input type="text" id="registrationNumber" name="registrationNumber" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="fuelType">Fuel Type</label>
+                                    <select id="fuelType" name="fuelType" required>
+                                        <option value="petrol">Petrol</option>
+                                        <option value="diesel">Diesel</option>
+                                        <option value="electric">Electric</option>
+                                        <option value="hybrid">Hybrid</option>
+                                        <option value="cng">CNG</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row vehicle-specifics car-specifics">
+                                <div class="form-group">
+                                    <label for="seatingCapacity">Seating Capacity</label>
+                                    <input type="number" id="seatingCapacity" name="seatingCapacity" min="1" max="20">
+                                </div>
+                                <div class="form-group">
+                                    <label for="transmission">Transmission</label>
+                                    <select id="transmission" name="transmission">
+                                        <option value="manual">Manual</option>
+                                        <option value="automatic">Automatic</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row vehicle-specifics bike-specifics" style="display: none;">
+                                <div class="form-group">
+                                    <label for="engineCapacity">Engine Capacity (cc)</label>
+                                    <input type="number" id="engineCapacity" name="engineCapacity" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="bikeType">Bike Type</label>
+                                    <select id="bikeType" name="bikeType">
+                                        <option value="standard">Standard</option>
+                                        <option value="cruiser">Cruiser</option>
+                                        <option value="sports">Sports</option>
+                                        <option value="scooter">Scooter</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group full-width">
+                                    <label for="vehicleDescription">Description</label>
+                                    <textarea id="vehicleDescription" name="vehicleDescription" rows="4" required></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-section">
+                            <h3>Images</h3>
+                            <div class="image-upload-container">
+                                <div class="image-upload">
+                                    <label for="primaryImage">
+                                        <div class="upload-placeholder">
+                                            <i class="fas fa-cloud-upload-alt"></i>
+                                            <p>Upload Primary Image</p>
+                                        </div>
+                                    </label>
+                                    <input type="file" id="primaryImage" name="primaryImage" accept="image/*" required>
+                                </div>
+                                
+                                <div class="additional-images">
+                                    <div class="image-upload">
+                                        <label for="additionalImage1">
+                                            <div class="upload-placeholder small">
+                                                <i class="fas fa-plus"></i>
+                                            </div>
+                                        </label>
+                                        <input type="file" id="additionalImage1" name="additionalImage1" accept="image/*">
+                                    </div>
+                                    <div class="image-upload">
+                                        <label for="additionalImage2">
+                                            <div class="upload-placeholder small">
+                                                <i class="fas fa-plus"></i>
+                                            </div>
+                                        </label>
+                                        <input type="file" id="additionalImage2" name="additionalImage2" accept="image/*">
+                                    </div>
+                                    <div class="image-upload">
+                                        <label for="additionalImage3">
+                                            <div class="upload-placeholder small">
+                                                <i class="fas fa-plus"></i>
+                                            </div>
+                                        </label>
+                                        <input type="file" id="additionalImage3" name="additionalImage3" accept="image/*">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-actions">
+                            <button type="button" class="cancel-btn">Cancel</button>
+                            <button type="submit" class="submit-btn">Add Vehicle</button>
+                        </div>
+                    </form>
+                </div>
+            </section>
+            
+            <!-- Add more sections here for Current Rentals, Past Rentals, etc. -->
+
+            <!-- Notification Component -->
+            <div id="notification" class="notification">
+                <div class="notification-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="notification-content">
+                    <p id="notificationMessage">Notification message here</p>
+                </div>
+                <button class="notification-close">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="firebase-config.js"></script>
+    <script src="agent-dashboard.js"></script>
+</body>
+</html> 

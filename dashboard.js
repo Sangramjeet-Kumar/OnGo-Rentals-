@@ -1,3 +1,59 @@
+// Add initialization code at the beginning
+document.addEventListener('DOMContentLoaded', async function() {
+    // Check user role and redirect if necessary
+    try {
+        // If a user is already being redirected, don't perform additional checks
+        if (sessionStorage.getItem('redirecting')) {
+            console.log('Redirection already in progress, skipping role check');
+            // Continue with normal dashboard initialization
+            initializeDateDisplay();
+            handleNavigation();
+            
+            // Set up event listeners
+            document.getElementById('logoutBtn').addEventListener('click', function() {
+                signOutUser()
+                    .then(() => {
+                        window.location.href = 'index.html';
+                    })
+                    .catch(error => {
+                        console.error('Logout error:', error);
+                        showNotification('Failed to log out. Please try again.', 'error');
+                    });
+            });
+            
+            // Load user data
+            loadUserData();
+            
+            return;
+        }
+        
+        // Verify this is the correct dashboard for the user's role
+        await checkUserRole();
+        
+        // Continue with normal dashboard initialization
+        initializeDateDisplay();
+        handleNavigation();
+        
+        // Set up event listeners
+        document.getElementById('logoutBtn').addEventListener('click', function() {
+            signOutUser()
+                .then(() => {
+                    window.location.href = 'index.html';
+                })
+                .catch(error => {
+                    console.error('Logout error:', error);
+                    showNotification('Failed to log out. Please try again.', 'error');
+                });
+        });
+        
+        // Load user data
+        loadUserData();
+        
+    } catch (error) {
+        console.error('Dashboard initialization error:', error);
+    }
+});
+
 // Initialize date display
 function initializeDateDisplay() {
     const dateElement = document.getElementById('currentDate');
@@ -73,6 +129,13 @@ function loadUserData() {
                 if (doc.exists) {
                     const userData = doc.data();
                     
+                    // Check if user type is correct for this dashboard
+                    if (userData.userType === 'agent') {
+                        console.log('Agent detected on customer dashboard, redirecting...');
+                        window.location.href = 'agent-dashboard.html';
+                        return;
+                    }
+                    
                     // Update UI with user data
                     document.getElementById("userName").textContent = userData.name || user.displayName || user.email;
                     
@@ -93,6 +156,7 @@ function loadUserData() {
                     db.collection("users").doc(user.uid).set({
                         name: user.displayName || "",
                         email: user.email,
+                        userType: 'customer',
                         createdAt: new Date(),
                         photoURL: user.photoURL || ""
                     })
