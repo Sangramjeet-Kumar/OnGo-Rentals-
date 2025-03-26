@@ -141,362 +141,366 @@
             <section id="book" class="content-section">
                 <div class="section-header">
                     <h1>Book a Vehicle</h1>
+                    <div class="view-all">
+                        <span id="car-count">24 cars to rent</span>
+                        <a href="#">View all</a>
+                    </div>
                 </div>
                 
-                <div class="booking-interface">
-                    <!-- Filters Panel -->
+                <div class="booking-container">
+                    <!-- Filters panel -->
                     <div class="filters-panel">
-                        <h2>Filters <button class="reset-button">Reset All</button></h2>
-                        
-                        <div class="filter-group">
-                            <label>Car Model</label>
-                            <select class="filter-dropdown">
-                                <option value="">All Models</option>
-                                <option value="alfa-romeo">Alfa Romeo</option>
-                                <option value="audi">Audi</option>
-                                <option value="bmw">BMW</option>
-                                <option value="mercedes">Mercedes-Benz</option>
-                                <option value="lexus">Lexus</option>
-                            </select>
+                        <div class="filters-header">
+                            <h2>Filters</h2>
+                            <button class="reset-btn">Reset</button>
                         </div>
-                        
+
                         <div class="filter-group">
-                            <label>Price Range</label>
+                            <h3>Vehicle Type</h3>
+                            <div class="vehicle-type-toggle">
+                                <button class="vehicle-btn active" data-type="car">
+                                    <i class="fas fa-car"></i>
+                                    <span>Cars</span>
+                                </button>
+                                <button class="vehicle-btn" data-type="bike">
+                                    <i class="fas fa-motorcycle"></i>
+                                    <span>Bikes</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="filter-group car-category">
+                            <h3>Car Category</h3>
+                            <div class="category-options">
+                                <label class="category-item">
+                                    <input type="checkbox" checked>
+                                    <span class="checkmark"></span>
+                                    <span>Mini</span>
+                                </label>
+                                <label class="category-item">
+                                    <input type="checkbox" checked>
+                                    <span class="checkmark"></span>
+                                    <span>Sedan</span>
+                                </label>
+                                <label class="category-item">
+                                    <input type="checkbox" checked>
+                                    <span class="checkmark"></span>
+                                    <span>SUV</span>
+                                </label>
+                                <label class="category-item">
+                                    <input type="checkbox" checked>
+                                    <span class="checkmark"></span>
+                                    <span>Family</span>
+                                </label>
+                                <label class="category-item">
+                                    <input type="checkbox">
+                                    <span class="checkmark"></span>
+                                    <span>Luxury</span>
+                                </label>
+                                <label class="category-item">
+                                    <input type="checkbox">
+                                    <span class="checkmark"></span>
+                                    <span>Electric</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <div class="filter-dropdown">
+                                <select id="carBrand">
+                                    <option>All Brands</option>
+                                    <option>Maruti Suzuki</option>
+                                    <option>Tata Motors</option>
+                                    <option>Mahindra</option>
+                                    <option>Hyundai</option>
+                                    <option>Honda</option>
+                                    <option>Toyota</option>
+                                    <option>Kia</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-dropdown">
+                                <select id="carModel">
+                                    <option>Select Model</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="filter-group">
+                            <h3>Price range per hour</h3>
                             <div class="price-range">
                                 <div class="price-inputs">
-                                    <span class="price-value">$15</span>
-                                    <span class="price-value">$120</span>
+                                    <div class="price-value">₹200</div>
+                                    <div class="price-value">₹2,000</div>
                                 </div>
                                 <div class="range-slider">
-                                    <div class="track" style="width: 70%;"></div>
-                                    <div class="thumb left" style="left: 10%;"></div>
-                                    <div class="thumb right" style="left: 80%;"></div>
+                                    <input type="range" min="200" max="2000" value="200" class="range" id="priceMin">
+                                    <input type="range" min="200" max="2000" value="2000" class="range" id="priceMax">
+                                    <div class="slider-track"></div>
                                 </div>
                             </div>
                         </div>
-                        
+
                         <div class="filter-group">
-                            <label>Vehicle Type</label>
-                            <div class="type-options">
-                                <label class="checkbox-option">
-                                    <input type="checkbox" checked> Sedan
-                                </label>
-                                <label class="checkbox-option">
-                                    <input type="checkbox"> SUV
-                                </label>
-                                <label class="checkbox-option">
-                                    <input type="checkbox"> Coupe
-                                </label>
-                                <label class="checkbox-option">
-                                    <input type="checkbox"> Hatchback
-                                </label>
+                            <h3>Pickup Schedule</h3>
+                            <div class="date-picker">
+                                <div class="date-field">
+                                    <label>Pickup Date</label>
+                                    <div class="input-with-icon">
+                                        <i class="fas fa-calendar"></i>
+                                        <input type="date" id="pickupDate" min="">
+                                    </div>
+                                </div>
+                                <div class="date-field">
+                                    <label>Return Date</label>
+                                    <div class="input-with-icon">
+                                        <i class="fas fa-calendar-check"></i>
+                                        <input type="date" id="returnDate" min="">
+                                    </div>
+                                </div>
+                                <div class="time-field">
+                                    <label>Pickup Time</label>
+                                    <div class="input-with-icon">
+                                        <i class="fas fa-clock"></i>
+                                        <input type="time" id="pickupTime" value="10:00">
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        
+
                         <div class="filter-group">
-                            <label>Color</label>
+                            <h3>Color</h3>
                             <div class="color-options">
-                                <label class="color-option">
-                                    <input type="radio" name="color" checked>
+                                <label class="color-item">
+                                    <input type="radio" name="color" value="black" checked>
                                     <span class="color-circle black"></span>
                                     <span>Black</span>
                                 </label>
-                                <label class="color-option">
-                                    <input type="radio" name="color">
+                                <label class="color-item">
+                                    <input type="radio" name="color" value="white">
                                     <span class="color-circle white"></span>
                                     <span>White</span>
                                 </label>
-                                <label class="color-option">
-                                    <input type="radio" name="color">
-                                    <span class="color-circle grey"></span>
-                                    <span>Grey</span>
+                                <label class="color-item">
+                                    <input type="radio" name="color" value="silver">
+                                    <span class="color-circle silver"></span>
+                                    <span>Silver</span>
                                 </label>
-                                <label class="color-option">
-                                    <input type="radio" name="color">
+                                <label class="color-item">
+                                    <input type="radio" name="color" value="red">
+                                    <span class="color-circle red"></span>
+                                    <span>Red</span>
+                                </label>
+                                <label class="color-item">
+                                    <input type="radio" name="color" value="blue">
                                     <span class="color-circle blue"></span>
                                     <span>Blue</span>
                                 </label>
-                            </div>
-                        </div>
-                        
-                        <div class="filter-group">
-                            <label>Availability</label>
-                            <div class="toggle-switch">
-                                <span>Show only available</span>
-                                <label class="switch">
-                                    <input type="checkbox" checked>
-                                    <span class="slider"></span>
+                                <label class="color-item">
+                                    <input type="radio" name="color" value="brown">
+                                    <span class="color-circle brown"></span>
+                                    <span>Brown</span>
                                 </label>
                             </div>
+                            <a href="#" class="view-more">All colors <i class="fas fa-chevron-down"></i></a>
                         </div>
-                        
+
                         <div class="filter-group">
-                            <label>Rental Type</label>
-                            <div class="rental-tabs">
-                                <div class="rental-tab active">Hourly</div>
-                                <div class="rental-tab">Daily</div>
-                            </div>
-                            
-                            <div class="rental-type">
-                                <label>Pick-up Date</label>
-                                <div class="input-with-icon">
-                                    <i class="fas fa-calendar"></i>
-                                    <input type="date" id="pickupDate" min="" class="filter-dropdown">
-                                </div>
-                            </div>
-                            
-                            <div class="rental-type">
-                                <label>Return Date</label>
-                                <div class="input-with-icon">
-                                    <i class="fas fa-calendar-check"></i>
-                                    <input type="date" id="returnDate" min="" class="filter-dropdown">
-                                </div>
-                            </div>
-                            
-                            <div class="rental-type">
-                                <label>Location</label>
-                                <div class="input-with-icon">
-                                    <i class="fas fa-map-marker-alt"></i>
-                                    <select id="location" class="filter-dropdown">
-                                        <option value="">Select a location</option>
-                                        <option value="new-york">New York</option>
-                                        <option value="los-angeles">Los Angeles</option>
-                                        <option value="chicago">Chicago</option>
-                                        <option value="miami">Miami</option>
-                                        <option value="san-francisco">San Francisco</option>
-                                    </select>
-                                </div>
+                            <div class="toggle-option">
+                                <label class="switch">
+                                    <input type="checkbox">
+                                    <span class="slider"></span>
+                                </label>
+                                <span>Available now only</span>
                             </div>
                         </div>
-                        
-                        <div class="more-options">
-                            <span>More Options</span>
-                            <i class="fas fa-chevron-down"></i>
+
+                        <div class="filter-group">
+                            <h3>Rental type</h3>
+                            <div class="button-toggle">
+                                <button class="toggle-btn active">Any</button>
+                                <button class="toggle-btn">Per day</button>
+                                <button class="toggle-btn">Per hour</button>
+                            </div>
                         </div>
+
+                        <div class="filter-group">
+                            <h3>Car insurance</h3>
+                            <div class="checkbox-group">
+                                <label class="checkbox-item">
+                                    <input type="checkbox" checked>
+                                    <span class="checkmark"></span>
+                                    <span>Collision Damage Waiver</span>
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox">
+                                    <span class="checkmark"></span>
+                                    <span>Roadside Plus</span>
+                                </label>
+                            </div>
+                            <a href="#" class="view-more">All insurance <i class="fas fa-chevron-down"></i></a>
+                        </div>
+
+                        <button class="apply-filters-btn">
+                            <i class="fas fa-filter"></i>
+                            Apply Filters
+                        </button>
                     </div>
-                    
-                    <!-- Car Listings -->
-                    <div class="car-listing">
-                        <div class="team-card">
-                            <h3>Our Premium Selection</h3>
-                            <p>Experience luxury and comfort with our carefully curated selection of premium vehicles for any occasion.</p>
-                            <button>Explore Premium</button>
-                        </div>
-                        
-                        <div class="car-list-header">
-                            <h2>Available Cars (12)</h2>
-                            <a href="#" class="view-all">View All</a>
-                        </div>
-                        
-                        <div class="cars-grid">
-                            <!-- Car Card 1 -->
+
+                    <!-- Car listings -->
+                    <div class="car-listings">
+                        <div class="car-grid">
+                            <!-- Car 1 -->
                             <div class="car-card">
-                                <div class="car-status status-new">New</div>
-                                <div class="favorite-btn">
-                                    <i class="far fa-heart"></i>
+                                <div class="car-status">
+                                    <span class="status-pill new">New</span>
+                                    <span class="status-pill available">Available</span>
+                                </div>
+                                <div class="car-favorite">
+                                    <button class="favorite-btn"><i class="far fa-heart"></i></button>
                                 </div>
                                 <div class="car-image">
-                                    <img src="https://www.pngall.com/wp-content/uploads/11/White-Sedan-PNG-Image.png" alt="Alfa Romeo Giulia">
+                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/123885/fronx-exterior-right-front-three-quarter-5.jpeg" alt="Maruti Suzuki Fronx">
                                 </div>
-                                <div class="car-details">
-                                    <div class="car-name">
-                                        <span class="car-model">Alfa Romeo Giulia</span>
-                                        <span class="car-year">2023</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <span class="price-amount">$45</span>
-                                        <span class="price-duration">/hour</span>
+                                <div class="car-info">
+                                    <div class="car-header">
+                                        <h3>Maruti Suzuki | Fronx</h3>
+                                        <p class="car-model">Mini SUV, 2023</p>
                                     </div>
                                     <div class="car-features">
-                                        <div class="car-feature">
-                                            <i class="fas fa-gas-pump"></i>
-                                            <span>Gasoline</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-cog"></i>
-                                            <span>Automatic</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-user-friends"></i>
-                                            <span>5 Seats</span>
-                                        </div>
+                                        <span><i class="fas fa-gas-pump"></i> Petrol</span>
+                                        <span><i class="fas fa-cog"></i> Manual</span>
+                                        <span><i class="fas fa-user"></i> 5 Seats</span>
                                     </div>
+                                    <div class="car-price">
+                                        <p>₹350 <span>/hour</span></p>
+                                    </div>
+                                </div>
+                                <button class="book-now-btn">Book Now</button>
+                            </div>
+                            
+                            <!-- Car 2 -->
+                            <div class="car-card">
+                                <div class="car-status">
+                                    <span class="status-pill booked">Booked till 10 PM</span>
+                                </div>
+                                <div class="car-favorite">
+                                    <button class="favorite-btn active"><i class="fas fa-heart"></i></button>
+                                </div>
+                                <div class="car-image">
+                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/115777/2022-scorpio-n-exterior-right-front-three-quarter-15.jpeg" alt="Mahindra Scorpio">
+                                </div>
+                                <div class="car-info">
+                                    <div class="car-header">
+                                        <h3>Mahindra | Scorpio-N</h3>
+                                        <p class="car-model">SUV, 2023</p>
+                                    </div>
+                                    <div class="car-features">
+                                        <span><i class="fas fa-gas-pump"></i> Diesel</span>
+                                        <span><i class="fas fa-cog"></i> Automatic</span>
+                                        <span><i class="fas fa-user"></i> 7 Seats</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <p>₹600 <span>/hour</span></p>
+                                    </div>
+                                </div>
+                                <button class="book-now-btn" disabled>Book Now</button>
+                            </div>
+                            
+                            <!-- Car 3 -->
+                            <div class="car-card">
+                                <div class="car-status">
+                                    <span class="status-pill available">Available</span>
+                                </div>
+                                <div class="car-favorite">
+                                    <button class="favorite-btn"><i class="far fa-heart"></i></button>
+                                </div>
+                                <div class="car-image">
+                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/42355/tata-nexon-right-front-three-quarter9.jpeg" alt="Tata Nexon">
+                                </div>
+                                <div class="car-info">
+                                    <div class="car-header">
+                                        <h3>Tata | Nexon</h3>
+                                        <p class="car-model">Compact SUV, 2023</p>
+                                    </div>
+                                    <div class="car-features">
+                                        <span><i class="fas fa-gas-pump"></i> Petrol</span>
+                                        <span><i class="fas fa-cog"></i> Manual</span>
+                                        <span><i class="fas fa-user"></i> 5 Seats</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <p>₹400 <span>/hour</span></p>
+                                    </div>
+                                </div>
+                                <button class="book-now-btn">Book Now</button>
+                            </div>
+                            
+                            <!-- Car 4 -->
+                            <div class="car-card promo-card">
+                                <div class="promo-content">
+                                    <h3>Special Offer!</h3>
+                                    <p>Get 15% off on weekend bookings. Use code: WEEKEND15</p>
+                                    <button class="read-more-btn">View Details</button>
+                                </div>
+                                <div class="promo-icon">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/2331/2331966.png" alt="Offer">
                                 </div>
                             </div>
                             
-                            <!-- Car Card 2 -->
+                            <!-- Car 5 -->
                             <div class="car-card">
-                                <div class="car-status status-available">Available</div>
-                                <div class="favorite-btn active">
-                                    <i class="fas fa-heart"></i>
+                                <div class="car-status">
+                                    <span class="status-pill booked">Booked till 5 PM</span>
+                                </div>
+                                <div class="car-favorite">
+                                    <button class="favorite-btn"><i class="far fa-heart"></i></button>
                                 </div>
                                 <div class="car-image">
-                                    <img src="https://www.pngall.com/wp-content/uploads/11/Black-Sedan-PNG-Image-HD.png" alt="Alfa Romeo Stelvio">
+                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/130583/seltos-facelift-exterior-right-front-three-quarter-3.jpeg" alt="Kia Seltos">
                                 </div>
-                                <div class="car-details">
-                                    <div class="car-name">
-                                        <span class="car-model">Alfa Romeo Stelvio</span>
-                                        <span class="car-year">2023</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <span class="price-amount">$60</span>
-                                        <span class="price-duration">/hour</span>
+                                <div class="car-info">
+                                    <div class="car-header">
+                                        <h3>Kia | Seltos</h3>
+                                        <p class="car-model">SUV, 2023</p>
                                     </div>
                                     <div class="car-features">
-                                        <div class="car-feature">
-                                            <i class="fas fa-gas-pump"></i>
-                                            <span>Gasoline</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-cog"></i>
-                                            <span>Automatic</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-user-friends"></i>
-                                            <span>5 Seats</span>
-                                        </div>
+                                        <span><i class="fas fa-gas-pump"></i> Petrol</span>
+                                        <span><i class="fas fa-cog"></i> Automatic</span>
+                                        <span><i class="fas fa-user"></i> 5 Seats</span>
+                                    </div>
+                                    <div class="car-price">
+                                        <p>₹550 <span>/hour</span></p>
                                     </div>
                                 </div>
+                                <button class="book-now-btn" disabled>Book Now</button>
                             </div>
                             
-                            <!-- Car Card 3 -->
+                            <!-- Car 6 -->
                             <div class="car-card">
-                                <div class="car-status status-booked">Booked</div>
-                                <div class="favorite-btn">
-                                    <i class="far fa-heart"></i>
+                                <div class="car-status">
+                                    <span class="status-pill available">Available</span>
+                                </div>
+                                <div class="car-favorite">
+                                    <button class="favorite-btn active"><i class="fas fa-heart"></i></button>
                                 </div>
                                 <div class="car-image">
-                                    <img src="https://www.pngall.com/wp-content/uploads/11/Blue-Sedan-Car-PNG-Image.png" alt="Alfa Romeo Giulia">
+                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/26918/city-4th-generation-exterior-right-front-three-quarter.jpeg" alt="Honda City">
                                 </div>
-                                <div class="car-details">
-                                    <div class="car-name">
-                                        <span class="car-model">Alfa Romeo Giulia QV</span>
-                                        <span class="car-year">2022</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <span class="price-amount">$75</span>
-                                        <span class="price-duration">/hour</span>
+                                <div class="car-info">
+                                    <div class="car-header">
+                                        <h3>Honda | City</h3>
+                                        <p class="car-model">Sedan, 2023</p>
                                     </div>
                                     <div class="car-features">
-                                        <div class="car-feature">
-                                            <i class="fas fa-gas-pump"></i>
-                                            <span>Gasoline</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-cog"></i>
-                                            <span>Automatic</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-user-friends"></i>
-                                            <span>5 Seats</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Car Card 4 -->
-                            <div class="car-card">
-                                <div class="car-status status-available">Available</div>
-                                <div class="favorite-btn">
-                                    <i class="far fa-heart"></i>
-                                </div>
-                                <div class="car-image">
-                                    <img src="https://www.pngall.com/wp-content/uploads/11/White-Car-PNG.png" alt="BMW 3 Series">
-                                </div>
-                                <div class="car-details">
-                                    <div class="car-name">
-                                        <span class="car-model">BMW 3 Series</span>
-                                        <span class="car-year">2023</span>
+                                        <span><i class="fas fa-gas-pump"></i> Petrol</span>
+                                        <span><i class="fas fa-cog"></i> CVT</span>
+                                        <span><i class="fas fa-user"></i> 5 Seats</span>
                                     </div>
                                     <div class="car-price">
-                                        <span class="price-amount">$55</span>
-                                        <span class="price-duration">/hour</span>
-                                    </div>
-                                    <div class="car-features">
-                                        <div class="car-feature">
-                                            <i class="fas fa-gas-pump"></i>
-                                            <span>Gasoline</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-cog"></i>
-                                            <span>Automatic</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-user-friends"></i>
-                                            <span>5 Seats</span>
-                                        </div>
+                                        <p>₹450 <span>/hour</span></p>
                                     </div>
                                 </div>
-                            </div>
-                            
-                            <!-- Car Card 5 -->
-                            <div class="car-card">
-                                <div class="car-status status-available">Available</div>
-                                <div class="favorite-btn">
-                                    <i class="far fa-heart"></i>
-                                </div>
-                                <div class="car-image">
-                                    <img src="https://www.pngall.com/wp-content/uploads/11/Black-SUV-PNG-Image.png" alt="Mercedes GLC">
-                                </div>
-                                <div class="car-details">
-                                    <div class="car-name">
-                                        <span class="car-model">Mercedes GLC</span>
-                                        <span class="car-year">2023</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <span class="price-amount">$65</span>
-                                        <span class="price-duration">/hour</span>
-                                    </div>
-                                    <div class="car-features">
-                                        <div class="car-feature">
-                                            <i class="fas fa-gas-pump"></i>
-                                            <span>Gasoline</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-cog"></i>
-                                            <span>Automatic</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-user-friends"></i>
-                                            <span>5 Seats</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Car Card 6 -->
-                            <div class="car-card">
-                                <div class="car-status status-new">New</div>
-                                <div class="favorite-btn">
-                                    <i class="far fa-heart"></i>
-                                </div>
-                                <div class="car-image">
-                                    <img src="https://www.pngall.com/wp-content/uploads/11/Blue-Sports-Car-PNG-Image.png" alt="Audi S5">
-                                </div>
-                                <div class="car-details">
-                                    <div class="car-name">
-                                        <span class="car-model">Audi S5 Sportback</span>
-                                        <span class="car-year">2023</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <span class="price-amount">$70</span>
-                                        <span class="price-duration">/hour</span>
-                                    </div>
-                                    <div class="car-features">
-                                        <div class="car-feature">
-                                            <i class="fas fa-gas-pump"></i>
-                                            <span>Gasoline</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-cog"></i>
-                                            <span>Automatic</span>
-                                        </div>
-                                        <div class="car-feature">
-                                            <i class="fas fa-user-friends"></i>
-                                            <span>5 Seats</span>
-                                        </div>
-                                    </div>
-                                </div>
+                                <button class="book-now-btn">Book Now</button>
                             </div>
                         </div>
                     </div>
@@ -512,13 +516,15 @@
                 <div class="history-filters">
                     <div class="search-bar">
                         <i class="fas fa-search"></i>
-                        <input type="text" placeholder="Search rentals...">
+                        <input type="text" id="historySearch" placeholder="Search by vehicle, location...">
                     </div>
                     
                     <div class="filter-options">
                         <select id="historyFilter">
                             <option value="all">All Rentals</option>
+                            <option value="active">Active</option>
                             <option value="completed">Completed</option>
+                            <option value="pending">Pending</option>
                             <option value="cancelled">Cancelled</option>
                         </select>
                     </div>
@@ -537,11 +543,37 @@
                             </tr>
                         </thead>
                         <tbody id="historyTableBody">
-                            <tr class="empty-history">
-                                <td colspan="6">No rental history found</td>
+                            <!-- This will be populated dynamically -->
+                            <!-- Example row:
+                            <tr>
+                                <td>Premium SUV</td>
+                                <td>May 10, 2023</td>
+                                <td>May 15, 2023</td>
+                                <td>New York</td>
+                                <td>$375.00</td>
+                                <td><span class="status-badge status-completed">Completed</span></td>
                             </tr>
+                            <tr>
+                                <td>Economy Sedan</td>
+                                <td>Jun 5, 2023</td>
+                                <td>Jun 7, 2023</td>
+                                <td>Chicago</td>
+                                <td>$90.00</td>
+                                <td><span class="status-badge status-active">Active</span></td>
+                            </tr>
+                            -->
                         </tbody>
                     </table>
+                    
+                    <!-- Empty state that will show when no rentals are found -->
+                    <div id="emptyHistoryContainer" class="empty-history-container" style="display: none;">
+                        <i class="fas fa-car-side"></i>
+                        <p>You don't have any rental history yet</p>
+                        <a href="#book" class="book-now-btn" id="bookFromHistoryBtn">
+                            <i class="fas fa-calendar-plus"></i>
+                            Book Your First Rental
+                        </a>
+                    </div>
                 </div>
             </section>
             
@@ -559,6 +591,21 @@
                                 <i class="fas fa-comment-slash"></i>
                                 <p>You haven't submitted any reviews yet</p>
                             </div>
+                            <!-- Example review items that will be populated dynamically -->
+                            <!-- <div class="review-item">
+                                <div class="review-item-header">
+                                    <div class="review-car">Premium SUV</div>
+                                    <div class="review-date">May 15, 2023</div>
+                                </div>
+                                <div class="review-rating">
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="far fa-star"></i>
+                                </div>
+                                <p class="review-comment">Great experience! The car was clean and performed well. Would definitely rent again.</p>
+                            </div> -->
                         </div>
                     </div>
                     
@@ -567,20 +614,24 @@
                         <div class="review-form">
                             <div class="form-group">
                                 <label>Select Rental</label>
-                                <select id="reviewRental">
-                                    <option value="">Select a completed rental</option>
-                                </select>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-car"></i>
+                                    <select id="reviewRental">
+                                        <option value="">Select a completed rental</option>
+                                    </select>
+                                </div>
                             </div>
                             
                             <div class="form-group">
                                 <label>Rating</label>
-                                <div class="star-rating">
+                                <div class="star-rating" id="ratingStars">
                                     <i class="far fa-star" data-rating="1"></i>
                                     <i class="far fa-star" data-rating="2"></i>
                                     <i class="far fa-star" data-rating="3"></i>
                                     <i class="far fa-star" data-rating="4"></i>
                                     <i class="far fa-star" data-rating="5"></i>
                                 </div>
+                                <input type="hidden" id="selectedRating" value="0">
                             </div>
                             
                             <div class="form-group">
@@ -588,7 +639,10 @@
                                 <textarea id="reviewComments" placeholder="Share your experience..."></textarea>
                             </div>
                             
-                            <button id="submitReviewBtn" class="submit-review-btn">Submit Review</button>
+                            <button id="submitReviewBtn" class="submit-review-btn">
+                                <i class="fas fa-paper-plane"></i>
+                                Submit Review
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -636,13 +690,61 @@
                                 
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label>Address</label>
+                                        <label>Email Address</label>
                                         <div class="input-with-icon">
-                                            <i class="fas fa-home"></i>
-                                            <input type="text" id="address" placeholder="Your address">
+                                            <i class="fas fa-envelope"></i>
+                                            <input type="email" id="emailAddress" placeholder="Your email address" disabled>
                                         </div>
                                     </div>
                                     
+                                    <div class="form-group">
+                                        <label>Date of Birth</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-calendar"></i>
+                                            <input type="date" id="dateOfBirth">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <h3>Address Information</h3>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Street Address</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-home"></i>
+                                            <input type="text" id="address" placeholder="Your street address">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>City</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-city"></i>
+                                            <input type="text" id="city" placeholder="Your city">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>State/Province</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-map-marker-alt"></i>
+                                            <input type="text" id="state" placeholder="Your state/province">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Postal Code</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-mail-bulk"></i>
+                                            <input type="text" id="postalCode" placeholder="Your postal code">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <h3>Driver Information</h3>
+                                <div class="form-row">
                                     <div class="form-group">
                                         <label>Driver's License</label>
                                         <div class="input-with-icon">
@@ -650,18 +752,29 @@
                                             <input type="text" id="driversLicense" placeholder="License number">
                                         </div>
                                     </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Expiration Date</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-calendar-alt"></i>
+                                            <input type="date" id="licenseExpiration">
+                                        </div>
+                                    </div>
                                 </div>
                                 
-                                <div class="form-group">
-                                    <label>Preferred Payment Method</label>
-                                    <div class="input-with-icon">
-                                        <i class="fas fa-credit-card"></i>
-                                        <select id="paymentMethod">
-                                            <option value="">Select payment method</option>
-                                            <option value="credit">Credit Card</option>
-                                            <option value="debit">Debit Card</option>
-                                            <option value="paypal">PayPal</option>
-                                        </select>
+                                <h3>Payment Information</h3>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Preferred Payment Method</label>
+                                        <div class="input-with-icon">
+                                            <i class="fas fa-credit-card"></i>
+                                            <select id="paymentMethod">
+                                                <option value="">Select payment method</option>
+                                                <option value="credit">Credit Card</option>
+                                                <option value="debit">Debit Card</option>
+                                                <option value="paypal">PayPal</option>
+                                            </select>
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -675,29 +788,58 @@
                         <div class="password-form">
                             <div class="form-group">
                                 <label>Current Password</label>
-                                <div class="input-with-icon">
+                                <div class="input-with-icon password-field">
                                     <i class="fas fa-lock"></i>
                                     <input type="password" id="currentPassword" placeholder="Enter current password">
+                                    <button type="button" class="password-toggle" data-target="currentPassword">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
                                 </div>
                             </div>
                             
                             <div class="form-group">
                                 <label>New Password</label>
-                                <div class="input-with-icon">
+                                <div class="input-with-icon password-field">
                                     <i class="fas fa-key"></i>
                                     <input type="password" id="newPassword" placeholder="Enter new password">
+                                    <button type="button" class="password-toggle" data-target="newPassword">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="password-strength">
+                                    <div class="password-strength-bar" id="passwordStrengthBar"></div>
+                                </div>
+                                <div class="password-strength-text">
+                                    <span class="password-strength-label">Password Strength: </span>
+                                    <span id="passwordStrengthText">None</span>
+                                </div>
+                                <div class="password-requirements">
+                                    <p class="requirements-title">Password must contain:</p>
+                                    <ul class="requirements-list">
+                                        <li id="length-check"><i class="fas fa-circle"></i> At least 8 characters</li>
+                                        <li id="uppercase-check"><i class="fas fa-circle"></i> At least one uppercase letter</li>
+                                        <li id="lowercase-check"><i class="fas fa-circle"></i> At least one lowercase letter</li>
+                                        <li id="number-check"><i class="fas fa-circle"></i> At least one number</li>
+                                        <li id="special-check"><i class="fas fa-circle"></i> At least one special character</li>
+                                    </ul>
                                 </div>
                             </div>
                             
                             <div class="form-group">
                                 <label>Confirm New Password</label>
-                                <div class="input-with-icon">
+                                <div class="input-with-icon password-field">
                                     <i class="fas fa-check-circle"></i>
                                     <input type="password" id="confirmPassword" placeholder="Confirm new password">
+                                    <button type="button" class="password-toggle" data-target="confirmPassword">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
                                 </div>
                             </div>
                             
-                            <button id="changePasswordBtn" class="change-password-btn">Change Password</button>
+                            <button id="changePasswordBtn" class="change-password-btn">
+                                <i class="fas fa-shield-alt"></i>
+                                Update Password
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -725,6 +867,5 @@
     
     <script src="firebase-config.js"></script>
     <script src="dashboard.js"></script>
-    <script src="book.js"></script>
 </body>
 </html> 
