@@ -300,90 +300,158 @@ function animateCounter(elementId, start, end, duration, prefix = '') {
 
 // Initialize charts
 function initializeCharts() {
-    // Revenue Chart
-    const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-    const revenueChart = new Chart(revenueCtx, {
-        type: 'line',
-        data: {
-            labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
-            datasets: [{
-                label: 'Revenue (₹)',
-                data: [65000, 72000, 68000, 78000, 82000, 85450],
-                backgroundColor: 'rgba(37, 99, 235, 0.2)',
-                borderColor: 'rgba(37, 99, 235, 1)',
-                borderWidth: 3,
-                tension: 0.4,
-                pointBackgroundColor: '#ffffff',
-                pointBorderColor: 'rgba(37, 99, 235, 1)',
-                pointBorderWidth: 2,
-                pointRadius: 6
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
-                }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: {
-                        color: 'rgba(226, 232, 240, 0.8)'
-                    }
-                },
-                x: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.1)'
-                    },
-                    ticks: {
-                        color: 'rgba(226, 232, 240, 0.8)'
-                    }
-                }
-            }
-        }
+    // Add loading state to charts
+    document.querySelectorAll('.chart-card').forEach(card => {
+        card.classList.add('loading');
     });
     
-    // Utilization Chart
-    const utilizationCtx = document.getElementById('utilizationChart').getContext('2d');
-    const utilizationChart = new Chart(utilizationCtx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Cars Available', 'Cars Rented', 'Bikes Available', 'Bikes Rented'],
-            datasets: [{
-                data: [12, 6, 4, 2],
-                backgroundColor: [
-                    'rgba(37, 99, 235, 0.8)',
-                    'rgba(245, 158, 11, 0.8)',
-                    'rgba(16, 185, 129, 0.8)',
-                    'rgba(139, 92, 246, 0.8)'
-                ],
-                borderColor: 'rgba(30, 41, 59, 1)',
-                borderWidth: 2
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        color: 'rgba(226, 232, 240, 0.8)',
-                        padding: 15,
-                        font: {
-                            size: 12
+    // Use requestAnimationFrame for better performance
+    requestAnimationFrame(() => {
+        // Revenue Chart
+        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
+        
+        // Set chart responsiveness settings
+        Chart.defaults.responsive = true;
+        Chart.defaults.maintainAspectRatio = false;
+        
+        // Limit data points to prevent performance issues
+        const revenueMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+        const revenueData = [65000, 72000, 68000, 78000, 82000, 85450];
+        
+        // Create chart with optimized settings
+        const revenueChart = new Chart(revenueCtx, {
+            type: 'line',
+            data: {
+                labels: revenueMonths,
+                datasets: [{
+                    label: 'Revenue (₹)',
+                    data: revenueData,
+                    backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                    borderColor: 'rgba(37, 99, 235, 1)',
+                    borderWidth: 3,
+                    tension: 0.4,
+                    pointBackgroundColor: '#ffffff',
+                    pointBorderColor: 'rgba(37, 99, 235, 1)',
+                    pointBorderWidth: 2,
+                    pointRadius: 6,
+                    pointHoverRadius: 8
+                }]
+            },
+            options: {
+                animation: {
+                    duration: 1000,  // Shorter animation for better performance
+                    easing: 'easeOutQuart'
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        // Optimize tooltips
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false,
+                        backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: 'rgba(37, 99, 235, 0.3)',
+                        borderWidth: 1
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grace: '5%', // Add 5% padding to prevent touching the edges
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: 'rgba(226, 232, 240, 0.8)',
+                            maxTicksLimit: 6, // Limit the number of ticks for better readability
+                            callback: function(value) {
+                                // Format as currency
+                                return '₹' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)',
+                            display: false
+                        },
+                        ticks: {
+                            color: 'rgba(226, 232, 240, 0.8)'
                         }
                     }
                 }
+            }
+        });
+        
+        // Utilization Chart with optimized settings
+        const utilizationCtx = document.getElementById('utilizationChart').getContext('2d');
+        const utilizationChart = new Chart(utilizationCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Cars Available', 'Cars Rented', 'Bikes Available', 'Bikes Rented'],
+                datasets: [{
+                    data: [12, 6, 4, 2],
+                    backgroundColor: [
+                        'rgba(37, 99, 235, 0.8)',
+                        'rgba(245, 158, 11, 0.8)',
+                        'rgba(16, 185, 129, 0.8)',
+                        'rgba(139, 92, 246, 0.8)'
+                    ],
+                    borderColor: 'rgba(30, 41, 59, 1)',
+                    borderWidth: 2,
+                    hoverOffset: 5
+                }]
             },
-            cutout: '65%'
-        }
+            options: {
+                animation: {
+                    duration: 800,  // Faster animation
+                    easing: 'easeOutQuad'
+                },
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            color: 'rgba(226, 232, 240, 0.8)',
+                            padding: 15,
+                            font: {
+                                size: 12
+                            },
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        displayColors: true,
+                        padding: 10
+                    }
+                },
+                cutout: '65%',
+                layout: {
+                    padding: {
+                        bottom: 30  // Add padding for the legend
+                    }
+                }
+            }
+        });
+        
+        // Remove loading state from charts
+        setTimeout(() => {
+            document.querySelectorAll('.chart-card').forEach(card => {
+                card.classList.remove('loading');
+            });
+        }, 500);
     });
 }
 

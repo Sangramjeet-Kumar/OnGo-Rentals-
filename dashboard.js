@@ -1,57 +1,58 @@
 // Add initialization code at the beginning
 document.addEventListener('DOMContentLoaded', async function() {
-    // Check user role and redirect if necessary
-    try {
-        // If a user is already being redirected, don't perform additional checks
-        if (sessionStorage.getItem('redirecting')) {
-            console.log('Redirection already in progress, skipping role check');
-            // Continue with normal dashboard initialization
-            initializeDateDisplay();
-            handleNavigation();
-            
-            // Set up event listeners
-            document.getElementById('logoutBtn').addEventListener('click', function() {
-                signOutUser()
-                    .then(() => {
-                        window.location.href = 'index.html';
-                    })
-                    .catch(error => {
-                        console.error('Logout error:', error);
-                        showNotification('Failed to log out. Please try again.', 'error');
-                    });
-            });
-            
-            // Load user data
-            loadUserData();
-            
+    // Wait for Firebase Auth to initialize
+    let authInitialized = false;
+    
+    // Set up auth state listener first
+    const unsubscribe = auth.onAuthStateChanged(async (user) => {
+        if (authInitialized) return; // Only run once
+        authInitialized = true;
+        
+        console.log('Auth state initialized on dashboard');
+        
+        if (!user) {
+            console.log('No user detected, redirecting to login page');
+            const currentTime = Date.now();
+            sessionStorage.setItem('lastRedirectTime', currentTime.toString());
+            window.location.replace('index.html');
             return;
         }
         
-        // Verify this is the correct dashboard for the user's role
-        await checkUserRole();
+        // Continue with dashboard initialization
+        try {
+            // Check user role and proceed with initialization
+            const userData = await checkUserRole();
+            
+            if (userData) {
+                // Initialize dashboard components
+                initializeDateDisplay();
+                handleNavigation();
+                loadUserData();
+                handleProfileUpdate();
+                handlePasswordToggles();
+                handlePasswordStrength();
+                handlePasswordChange();
+                handleStarRating();
+                handleReviewSubmission();
+                loadUserReviews();
+                loadRentalOptions();
+                
+                // Setup rental history functionality
+                const { loadRentalHistory } = handleRentalHistory();
+                loadRentalHistory();
+                
+                // Set up logout handler
+                document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+                
+                console.log('Dashboard initialization complete');
+            }
+        } catch (error) {
+            console.error('Dashboard initialization error:', error);
+        }
         
-        // Continue with normal dashboard initialization
-        initializeDateDisplay();
-        handleNavigation();
-        
-        // Set up event listeners
-        document.getElementById('logoutBtn').addEventListener('click', function() {
-            signOutUser()
-                .then(() => {
-                    window.location.href = 'index.html';
-                })
-                .catch(error => {
-                    console.error('Logout error:', error);
-                    showNotification('Failed to log out. Please try again.', 'error');
-                });
-        });
-        
-        // Load user data
-        loadUserData();
-        
-    } catch (error) {
-        console.error('Dashboard initialization error:', error);
-    }
+        // Clean up listener since we only need it once
+        unsubscribe();
+    });
 });
 
 // Initialize date display
@@ -122,67 +123,121 @@ function loadUserData() {
     // Check if user is logged in
     const user = auth.currentUser;
     
-    if (user) {
-        // Get user data from Firestore
-        db.collection("users").doc(user.uid).get()
-            .then((doc) => {
-                if (doc.exists) {
-                    const userData = doc.data();
+    if (!user) {
+        console.log("No user is currently signed in");
+        // Don't redirect immediately, let the auth listener handle it
+        return;
+    }
+    
+    // Get user data from Firestore
+    db.collection("users").doc(user.uid).get()
+        .then((doc) => {
+            if (doc.exists) {
+                const userData = doc.data();
+                
+                // Check if user type is correct for this dashboard
+                if (userData.userType === 'agent') {
+                    console.log('Agent detected on customer dashboard, checking recent redirects');
                     
-                    // Check if user type is correct for this dashboard
-                    if (userData.userType === 'agent') {
-                        console.log('Agent detected on customer dashboard, redirecting...');
-                        window.location.href = 'agent-dashboard.html';
-                        return;
+                    // Only redirect if we haven't redirected recently
+                    const lastRedirectTime = parseInt(sessionStorage.getItem('lastRedirectTime') || '0');
+                    const currentTime = Date.now();
+                    
+                    if (currentTime - lastRedirectTime > 3000) {
+                        console.log('Redirecting agent to agent dashboard');
+                        sessionStorage.setItem('lastRedirectTime', currentTime.toString());
+                        window.location.replace('agent-dashboard.html');
+                    } else {
+                        console.log('Skipping redirect due to recent redirect');
                     }
+                    return;
+                }
+                
+                // Update UI with user data
+                const userNameElements = document.querySelectorAll('#userName, #profileName');
+                userNameElements.forEach(element => {
+                    if (element) {
+                        element.textContent = userData.name || user.displayName || user.email;
+                    }
+                });
+                
+                // Update profile email
+                const profileEmailElement = document.getElementById('profileEmail');
+                if (profileEmailElement) {
+                    profileEmailElement.textContent = userData.email || user.email;
+                }
+                
+                // Set profile picture if available
+                const userAvatarElement = document.getElementById('userAvatar');
+                if (userAvatarElement && (userData.photoURL || user.photoURL)) {
+                    userAvatarElement.src = userData.photoURL || user.photoURL;
+                }
+                
+                // Initialize booking UI
+                initBookingUI();
+                
+                // Set minimum date for booking form
+                const today = new Date().toISOString().split('T')[0];
+                const pickupDateInput = document.getElementById('pickupDate');
+                const returnDateInput = document.getElementById('returnDate');
+                
+                if (pickupDateInput && returnDateInput) {
+                    pickupDateInput.min = today;
+                    returnDateInput.min = today;
+                    
+                    // Handle pickup date change to update return date minimum
+                    pickupDateInput.addEventListener('change', function() {
+                        returnDateInput.min = this.value;
+                    });
+                }
+                
+                console.log("User data loaded successfully");
+            } else {
+                console.log("No user data found in database");
+                showNotification("Creating your profile...", "info");
+                
+                // Create new user document
+                db.collection("users").doc(user.uid).set({
+                    name: user.displayName || "",
+                    email: user.email,
+                    userType: 'customer',
+                    createdAt: new Date(),
+                    photoURL: user.photoURL || ""
+                })
+                .then(() => {
+                    console.log("User profile created");
+                    showNotification("Profile created successfully", "success");
                     
                     // Update UI with user data
-                    document.getElementById("userName").textContent = userData.name || user.displayName || user.email;
+                    const userNameElements = document.querySelectorAll('#userName, #profileName');
+                    userNameElements.forEach(element => {
+                        if (element) {
+                            element.textContent = user.displayName || user.email;
+                        }
+                    });
                     
-                    // Set profile picture if available
-                    if (userData.photoURL || user.photoURL) {
-                        document.getElementById("userAvatar").src = userData.photoURL || user.photoURL;
+                    // Update profile email
+                    const profileEmailElement = document.getElementById('profileEmail');
+                    if (profileEmailElement) {
+                        profileEmailElement.textContent = user.email;
                     }
                     
                     // Initialize booking UI
                     initBookingUI();
-                    
-                    console.log("User data loaded successfully");
-                } else {
-                    console.log("No user data found in database");
-                    showNotification("No user profile found", "warning");
-                    
-                    // Create new user document
-                    db.collection("users").doc(user.uid).set({
-                        name: user.displayName || "",
-                        email: user.email,
-                        userType: 'customer',
-                        createdAt: new Date(),
-                        photoURL: user.photoURL || ""
-                    })
-                    .then(() => {
-                        console.log("User profile created");
-                        document.getElementById("userName").textContent = user.displayName || user.email;
-                        
-                        // Initialize booking UI
-                        initBookingUI();
-                    })
-                    .catch((error) => {
-                        console.error("Error creating user profile: ", error);
-                    });
-                }
-            })
-            .catch((error) => {
-                console.error("Error getting user data: ", error);
-                showNotification("Error loading user data", "error");
-                
-                // Still initialize booking UI even if user data loading fails
-                initBookingUI();
-            });
-    } else {
-        console.log("No user is currently signed in");
-        window.location.href = "index.html";
-    }
+                })
+                .catch((error) => {
+                    console.error("Error creating user profile: ", error);
+                    showNotification("Error creating your profile", "error");
+                });
+            }
+        })
+        .catch((error) => {
+            console.error("Error getting user data: ", error);
+            showNotification("Error loading user data", "error");
+            
+            // Still initialize booking UI even if user data loading fails
+            initBookingUI();
+        });
 }
 
 // Handle profile update
@@ -265,12 +320,23 @@ function handleLogout() {
     const logoutBtn = document.getElementById('logoutBtn');
     
     logoutBtn.addEventListener('click', () => {
+        // Show loading indicator on logout button
+        logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Logging out...</span>';
+        logoutBtn.disabled = true;
+        
+        // Set redirect timestamp to prevent loops
+        const currentTime = Date.now();
+        sessionStorage.setItem('lastRedirectTime', currentTime.toString());
+        sessionStorage.setItem('redirectReason', 'logout');
+        
         signOutUser()
             .then(() => {
-                window.location.href = 'index.html';
+                window.location.replace('index.html');
             })
             .catch((error) => {
                 console.error("Error signing out:", error);
+                logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> <span>Logout</span>';
+                logoutBtn.disabled = false;
                 showNotification("Failed to log out. Please try again.", "error");
             });
     });
@@ -1370,41 +1436,19 @@ function initBookingUI() {
 
 // Initialize dashboard
 window.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard DOM content loaded');
+    console.log('Dashboard DOM content loaded - Using primary initialization only');
     
-    // Listen for auth state changes
-    auth.onAuthStateChanged((user) => {
-        console.log('Auth state changed:', user);
-        if (user) {
-            // User is signed in, initialize dashboard
-            console.log('User is signed in, initializing dashboard');
-            initializeDateDisplay();
-            handleNavigation();
-            loadUserData();
-            handleProfileUpdate();
-            handlePasswordToggles();
-            handlePasswordStrength();
-            handlePasswordChange();
-            handleStarRating();
-            handleReviewSubmission();
-            loadUserReviews();
-            loadRentalOptions();
-            const rentalHistoryHandler = handleRentalHistory();
-            handleLogout();
-            
-            // Set minimum date for booking form
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('pickupDate').min = today;
-            document.getElementById('returnDate').min = today;
-            
-            // Handle pickup date change to update return date minimum
-            document.getElementById('pickupDate').addEventListener('change', function() {
-                document.getElementById('returnDate').min = this.value;
-            });
-        } else {
-            // User is not signed in, redirect to login page
-            console.log('User is not signed in, redirecting to login page');
-            window.location.href = 'index.html';
-        }
-    });
+    // IMPORTANT: The authentication and initialization is now handled by the auth state listener
+    // at the top of the file (lines 1-44). This secondary listener has been removed to prevent
+    // race conditions, automatic redirections, and flickering issues.
+    
+    // The following components are initialized by the primary listener when a user is authenticated:
+    // - Date display
+    // - Navigation handler
+    // - User data loading
+    // - Profile update handler
+    // - Password management
+    // - Review system
+    // - Rental history
+    // - Booking UI
 }); 

@@ -98,30 +98,31 @@ function onAuthStateChanged(callback) {
 // Check user role and redirect if needed
 async function checkUserRole() {
   console.log('Checking user role...');
-  const user = auth.currentUser;
   
-  // If redirection is in progress, don't do anything
-  if (localStorage.getItem('isRedirecting')) {
-    console.log('Redirection already in progress, skipping checkUserRole');
-    // Clear the redirection flag after a delay to prevent it from getting stuck
-    setTimeout(() => {
-      localStorage.removeItem('isRedirecting');
-    }, 5000);
+  // Prevent redirect loops with a timestamp-based check
+  const lastRedirectTime = parseInt(sessionStorage.getItem('lastRedirectTime') || '0');
+  const currentTime = Date.now();
+  
+  // If we've redirected within the last 3 seconds, don't redirect again
+  if (currentTime - lastRedirectTime < 3000) {
+    console.log('Recently redirected, skipping checkUserRole');
     return null;
   }
+  
+  const user = auth.currentUser;
   
   if (!user) {
     console.log('No user logged in during checkUserRole');
     
-    // If no user is logged in, redirect to login page
     // Only redirect if not already on the index page to prevent loops
     const onIndexPage = window.location.pathname.includes('index.html') || 
-                        window.location.pathname.endsWith('/') ||
-                        window.location.pathname === '';
+                      window.location.pathname.endsWith('/') ||
+                      window.location.pathname === '';
     
     if (!onIndexPage) {
       console.log('No user logged in, redirecting to login page...');
-      localStorage.setItem('isRedirecting', 'true');
+      sessionStorage.setItem('lastRedirectTime', currentTime.toString());
+      sessionStorage.setItem('redirectReason', 'not_logged_in');
       window.location.replace('index.html');
     }
     return null;
@@ -136,7 +137,8 @@ async function checkUserRole() {
       console.error('User document does not exist');
       // If user document doesn't exist, log out and redirect
       await signOutUser();
-      localStorage.setItem('isRedirecting', 'true');
+      sessionStorage.setItem('lastRedirectTime', currentTime.toString());
+      sessionStorage.setItem('redirectReason', 'no_user_doc');
       window.location.replace('index.html');
       return null;
     }
@@ -152,7 +154,8 @@ async function checkUserRole() {
     // Agent check - if agent is on customer dashboard, redirect
     if (userData.userType === 'agent' && currentPage === 'dashboard.html') {
       console.log('Agent on customer dashboard, redirecting to agent dashboard');
-      localStorage.setItem('isRedirecting', 'true');
+      sessionStorage.setItem('lastRedirectTime', currentTime.toString());
+      sessionStorage.setItem('redirectReason', 'agent_to_agent_dashboard');
       window.location.replace('agent-dashboard.html');
       return null;
     }
@@ -160,17 +163,15 @@ async function checkUserRole() {
     // Customer check - if customer is on agent dashboard, redirect
     if (userData.userType !== 'agent' && currentPage === 'agent-dashboard.html') {
       console.log('Customer on agent dashboard, redirecting to customer dashboard');
-      localStorage.setItem('isRedirecting', 'true');
+      sessionStorage.setItem('lastRedirectTime', currentTime.toString());
+      sessionStorage.setItem('redirectReason', 'customer_to_dashboard');
       window.location.replace('dashboard.html');
       return null;
     }
     
-    // On correct page, clear any lingering redirection flags
-    localStorage.removeItem('isRedirecting');
     return userData;
   } catch (error) {
     console.error('Error checking user role:', error);
-    localStorage.removeItem('isRedirecting');
     return null;
   }
 } 

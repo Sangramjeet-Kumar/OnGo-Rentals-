@@ -31,68 +31,84 @@ document.addEventListener('DOMContentLoaded', function() {
     if (onIndexPage) {
         console.log('On index page, setting up auth state change listener for redirection');
         
-        // Single auth state change listener for index page
-        auth.onAuthStateChanged(user => {
-            // Skip if redirection is already in progress 
-            if (redirectionInProgress || localStorage.getItem('isRedirecting')) {
-                console.log('Redirection already in progress, skipping');
-                return;
-            }
+        // Check for recent redirects to prevent loops
+        const lastRedirectTime = parseInt(sessionStorage.getItem('lastRedirectTime') || '0');
+        const currentTime = Date.now();
+        
+        // If we've redirected within the last 3 seconds, don't check auth state yet
+        if (currentTime - lastRedirectTime < 3000) {
+            console.log('Recently redirected to index page, delaying auth check');
+            // Set up login form handlers first
+            setupLoginForm();
+            setupRegistrationForm();
+            setupForgotPasswordForm();
             
-            if (user) {
-                console.log('User already logged in on index page, checking role...');
-                
-                // Set redirection flags to prevent loops
-                redirectionInProgress = true;
-                localStorage.setItem('isRedirecting', 'true');
-                
-                // Get user data from Firestore to determine role
-                db.collection('users').doc(user.uid).get()
-                    .then(doc => {
-                        if (doc.exists) {
-                            const userData = doc.data();
-                            console.log('User role found:', userData.userType);
-                            
-                            // Clear the redirection flag after a timeout if redirection failed
-                            setTimeout(() => {
-                                localStorage.removeItem('isRedirecting');
-                            }, 5000);
-                            
-                            // Redirect based on user type - use replace instead of href
-                            if (userData.userType === 'agent') {
-                                console.log('Redirecting agent to agent dashboard');
-                                window.location.replace('agent-dashboard.html');
-                            } else {
-                                console.log('Redirecting customer to customer dashboard');
-                                window.location.replace('dashboard.html');
-                            }
-                        } else {
-                            // If no user data exists, reset the flag
-                            console.error('User document does not exist');
-                            redirectionInProgress = false;
-                            localStorage.removeItem('isRedirecting');
-                            
-                            // Sign out user if no user data exists
-                            auth.signOut().then(() => {
-                                showNotification('User data not found. Please login again.', 'error');
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error checking user role:', error);
-                        // Reset the flag on error
-                        redirectionInProgress = false;
-                        localStorage.removeItem('isRedirecting');
-                        showNotification('Error verifying your account. Please try again.', 'error');
-                    });
-            } else {
-                console.log('No user logged in on index page - no redirection needed');
-            }
-        });
+            // Wait a bit before checking auth state to prevent immediate redirects
+            setTimeout(() => {
+                setupAuthStateListener();
+            }, 2000);
+        } else {
+            // Normal flow - check auth state immediately
+            setupAuthStateListener();
+            setupLoginForm();
+            setupRegistrationForm();
+            setupForgotPasswordForm();
+        }
     } else {
         console.log('Not on index page, skipping automatic redirection on load');
     }
 });
+
+// Function to set up the auth state change listener
+function setupAuthStateListener() {
+    // Set up a one-time auth state listener to prevent multiple redirects
+    const unsubscribe = auth.onAuthStateChanged(user => {
+        console.log('Auth state change detected on index page');
+        
+        if (user) {
+            console.log('User already logged in on index page, checking role...');
+            
+            // Get user data from Firestore to determine role
+            db.collection('users').doc(user.uid).get()
+                .then(doc => {
+                    if (doc.exists) {
+                        const userData = doc.data();
+                        console.log('User role found:', userData.userType);
+                        
+                        // Set timestamp to prevent redirect loops
+                        const currentTime = Date.now();
+                        sessionStorage.setItem('lastRedirectTime', currentTime.toString());
+                        
+                        // Redirect based on user type - use replace instead of href
+                        if (userData.userType === 'agent') {
+                            console.log('Redirecting agent to agent dashboard');
+                            window.location.replace('agent-dashboard.html');
+                        } else {
+                            console.log('Redirecting customer to customer dashboard');
+                            window.location.replace('dashboard.html');
+                        }
+                    } else {
+                        // If no user data exists
+                        console.error('User document does not exist');
+                        
+                        // Sign out user if no user data exists
+                        auth.signOut().then(() => {
+                            showNotification('User data not found. Please login again.', 'error');
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking user role:', error);
+                    showNotification('Error verifying your account. Please try again.', 'error');
+                });
+        } else {
+            console.log('No user logged in on index page - no redirection needed');
+        }
+        
+        // Unsubscribe after first auth check to prevent multiple checks
+        unsubscribe();
+    });
+}
 
 // Generate buildings for the cityscape
 function generateCityscape() {

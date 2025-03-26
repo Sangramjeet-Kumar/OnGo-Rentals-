@@ -331,6 +331,19 @@ body {
     border-radius: var(--border-radius);
     padding: 20px;
     box-shadow: var(--shadow-card);
+    position: relative;
+    overflow: hidden;
+    /* Set maximum height to prevent infinite growth */
+    height: 350px;
+    max-height: 350px;
+    /* Using will-change to optimize rendering performance */
+    will-change: transform;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.chart-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
 }
 
 .chart-card h3 {
@@ -338,6 +351,94 @@ body {
     font-weight: 600;
     margin-bottom: 20px;
     color: var(--text-color);
+    position: relative;
+    z-index: 2;
+}
+
+/* Chart container to limit infinite growth */
+.chart-card canvas {
+    /* Using GPU acceleration */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    /* Ensure the chart stays within bounds */
+    max-width: 100% !important;
+    max-height: 250px !important;
+    position: relative;
+    z-index: 1;
+}
+
+/* Add a loading state for charts */
+.chart-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.7);
+    z-index: 3;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.chart-card.loading::before {
+    opacity: 1;
+}
+
+.chart-card.loading::after {
+    content: 'Loading...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 14px;
+    z-index: 4;
+}
+
+/* Chart watermark */
+.chart-watermark {
+    position: absolute;
+    right: 15px;
+    bottom: 10px;
+    font-size: 10px;
+    opacity: 0.5;
+    z-index: 2;
+}
+
+/* Animation optimizations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Add chart legends styling to make them more compact */
+.chart-legend {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 10px;
+    font-size: 12px;
+}
+
+.chart-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.chart-legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
 }
 
 .dashboard-bottom {
