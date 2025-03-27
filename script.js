@@ -360,19 +360,26 @@ function addFlickerAnimation() {
 function showLoginForm(type) {
     const loginForm = document.getElementById('loginForm');
     const loginTitle = document.getElementById('loginTitle');
+    const form = document.querySelector('#loginForm form');
     
     // Set the title based on login type
     if (type === 'agent') {
         loginTitle.textContent = 'Agent Login';
+        form.id = 'agent-login-form';
     } else {
         loginTitle.textContent = 'Customer Login';
+        form.id = 'customer-login-form';
     }
     
     // Clear any previous inputs
     document.getElementById('email').value = '';
     document.getElementById('password').value = '';
     document.getElementById('rememberMe').checked = false;
-    document.getElementById('loginErrorMessage').textContent = '';
+    
+    // Clear any previous errors
+    const errorMessage = document.getElementById('loginErrorMessage');
+    errorMessage.textContent = '';
+    errorMessage.classList.remove('active');
     
     // Show the form with animation
     loginForm.style.display = 'flex';
@@ -526,16 +533,15 @@ function hideResetPasswordForm() {
     }, 300);
 }
 
-// Show error message
-function showError(elementId, message) {
-    const errorElement = document.getElementById(elementId);
-    errorElement.textContent = message;
-    errorElement.classList.add('active');
-    
-    // Hide error after 5 seconds
-    setTimeout(() => {
-        errorElement.classList.remove('active');
-    }, 5000);
+// Helper to show error message
+function showError(message) {
+    const errorElement = document.querySelector('.error-message');
+    if (errorElement) {
+        errorElement.textContent = message;
+        errorElement.classList.add('active');
+    } else {
+        console.error('Error element not found, message:', message);
+    }
 }
 
 // Handle login form submission
@@ -552,7 +558,7 @@ async function handleLogin() {
     console.log('Login attempt with email:', email, 'as', isAgentLogin ? 'agent' : 'customer');
     
     if (!email || !password) {
-        showError('loginErrorMessage', 'Please enter both email and password.');
+        showError('Please enter both email and password.');
         return;
     }
     
@@ -585,7 +591,7 @@ async function handleLogin() {
         if (isAgentLogin && userData.userType !== 'agent') {
             console.log('Customer attempting to log in as agent');
             await auth.signOut();
-            showError('loginErrorMessage', 'This account does not have agent privileges.');
+            showError('This account does not have agent privileges.');
             loginButton.textContent = 'Login';
             loginButton.disabled = false;
             return;
@@ -630,7 +636,7 @@ async function handleLogin() {
                 errorMessage = `Error: ${error.message || error}`;
         }
         
-        showError('loginErrorMessage', errorMessage);
+        showError(errorMessage);
     } finally {
         // Reset button state
         loginButton.textContent = 'Login';
@@ -694,17 +700,17 @@ async function handleSignup() {
     console.log('Signup attempt with email:', email);
     
     if (!name || !email || !password || !confirmPassword) {
-        showError('signupErrorMessage', 'Please fill in all fields.');
+        showError('Please fill in all fields.');
         return;
     }
     
     if (password !== confirmPassword) {
-        showError('signupErrorMessage', 'Passwords do not match.');
+        showError('Passwords do not match.');
         return;
     }
     
     if (password.length < 6) {
-        showError('signupErrorMessage', 'Password must be at least 6 characters long.');
+        showError('Password must be at least 6 characters long.');
         return;
     }
     
@@ -776,7 +782,7 @@ async function handleSignup() {
                 errorMessage = `An unexpected error occurred: ${error.message || error}. Please try again.`;
         }
         
-        showError('signupErrorMessage', errorMessage);
+        showError(errorMessage);
     } finally {
         // Reset button state
         signupButton.textContent = 'Create Account';
@@ -789,7 +795,7 @@ function handleResetPassword() {
     const email = document.getElementById('resetEmail').value;
     
     if (!email) {
-        showError('resetErrorMessage', 'Please enter your email address.');
+        showError('Please enter your email address.');
         return;
     }
     
@@ -814,7 +820,7 @@ function handleResetPassword() {
                 errorMessage = 'Invalid email address.';
             }
             
-            showError('resetErrorMessage', errorMessage);
+            showError(errorMessage);
         })
         .finally(() => {
             // Reset button state
@@ -822,6 +828,43 @@ function handleResetPassword() {
             resetButton.disabled = false;
         });
 }
+
+// Tab navigation functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const tabLinks = document.querySelectorAll('.nav-links a[data-tab]');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+    
+    console.log('Tab links found:', tabLinks.length);
+    console.log('Tab panes found:', tabPanes.length);
+    
+    // Show home tab by default
+    document.querySelector('.tab-pane[data-tab="home"]')?.classList.add('active');
+    document.querySelector('.nav-links a[data-tab="home"]')?.classList.add('active');
+    
+    tabLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            const targetTab = this.getAttribute('data-tab');
+            console.log('Tab clicked:', targetTab);
+            
+            // Remove active class from all tabs and panes
+            tabLinks.forEach(link => link.classList.remove('active'));
+            tabPanes.forEach(pane => pane.classList.remove('active'));
+            
+            // Add active class to current tab and pane
+            this.classList.add('active');
+            
+            const targetPane = document.querySelector(`.tab-pane[data-tab="${targetTab}"]`);
+            if (targetPane) {
+                targetPane.classList.add('active');
+                console.log('Tab activated:', targetTab);
+            } else {
+                console.error('Tab pane not found for:', targetTab);
+            }
+        });
+    });
+});
 
 // Initialize the application
 window.addEventListener('DOMContentLoaded', () => {
@@ -839,6 +882,21 @@ window.addEventListener('DOMContentLoaded', () => {
             generateRoadLines();
         }, 100);
         
+        // Initialize button event listeners
+        const bookNowBtn = document.querySelector('.book-now');
+        if (bookNowBtn) {
+            bookNowBtn.addEventListener('click', function() {
+                showLoginForm('customer');
+            });
+        }
+
+        const loginBtn = document.querySelector('.login-btn');
+        if (loginBtn) {
+            loginBtn.addEventListener('click', function() {
+                showLoginForm('agent');
+            });
+        }
+
         // Don't run these if the elements don't exist
         const carImage = document.querySelector('.car-image');
         if (carImage) {
@@ -850,81 +908,115 @@ window.addEventListener('DOMContentLoaded', () => {
     } catch (error) {
         console.error('Error initializing UI components:', error);
     }
-    
-    // CRITICAL FIX: Add direct click handlers to buttons
-    const loginButton = document.getElementById('loginButton');
-    if (loginButton) {
-        loginButton.onclick = function(e) {
-            e.preventDefault();
-            console.log('Login button clicked directly');
-            handleLogin();
-        };
-    }
-    
-    const signupButton = document.getElementById('signupButton');
-    if (signupButton) {
-        signupButton.onclick = function(e) {
-            e.preventDefault();
-            console.log('Signup button clicked directly');
-            handleSignup();
-        };
-    }
-    
-    const resetPasswordButton = document.getElementById('resetPasswordButton');
-    if (resetPasswordButton) {
-        resetPasswordButton.onclick = function(e) {
-            e.preventDefault(); 
-            console.log('Reset password button clicked directly');
-            handleResetPassword();
-        };
-    }
-    
-    // Periodically regenerate shooting stars for continuous effect
-    setInterval(() => {
-        const shootingStars = document.querySelectorAll('.shooting-star');
-        shootingStars.forEach(star => star.remove());
-        
-        const background = document.getElementById('background');
-        if (background) {
-            const numShootingStars = 5;
-            
-            for (let i = 0; i < numShootingStars; i++) {
-                const shootingStar = document.createElement('div');
-                shootingStar.className = 'shooting-star';
-                shootingStar.style.left = `${Math.random() * 70}%`;
-                shootingStar.style.top = `${Math.random() * 40}%`;
-                shootingStar.style.animationDelay = `${i * 1.5}s`;
-                background.appendChild(shootingStar);
-            }
-        }
-    }, 15000);
-    
-    // Resize event to adjust elements
-    window.addEventListener('resize', () => {
-        generateCityscape();
-        generateRoadLines();
-        generateStars();
-    });
 
-    // Add active class to current nav link
-    const currentLocation = window.location.pathname;
+    // Tab Navigation
     const navLinks = document.querySelectorAll('.nav-links a');
+    const tabPanes = document.querySelectorAll('.tab-pane');
+
     navLinks.forEach(link => {
-        if (link.getAttribute('href') === currentLocation) {
-            link.classList.add('active');
-        }
-    });
-    
-    // Add animation to form inputs
-    const inputs = document.querySelectorAll('input');
-    inputs.forEach(input => {
-        input.addEventListener('focus', () => {
-            input.parentElement.classList.add('focused');
-        });
-        input.addEventListener('blur', () => {
-            if (!input.value) {
-                input.parentElement.classList.remove('focused');
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Remove active class from all links and tabs
+            navLinks.forEach(l => l.classList.remove('active'));
+            tabPanes.forEach(p => p.classList.remove('active'));
+            
+            // Add active class to clicked link and corresponding tab
+            this.classList.add('active');
+            const tabId = this.getAttribute('data-tab');
+            const targetTab = document.getElementById(tabId);
+            if (targetTab) {
+                targetTab.classList.add('active');
             }
         });
     });
+});
+
+function loginUser(formData, userType) {
+    const emailInput = formData.get('email');
+    const passwordInput = formData.get('password');
+    
+    console.log('Login attempt:', emailInput, passwordInput ? '******' : 'empty');
+    
+    if (!emailInput || !passwordInput) {
+        showError('Please enter both email and password');
+        return;
+    }
+    
+    // Reset any previous errors
+    document.querySelector('.error-message').classList.remove('active');
+    
+    // Add loading state
+    const submitBtn = document.querySelector(`#${userType}-login-form .submit-btn`);
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Logging in...';
+    submitBtn.disabled = true;
+    
+    // Authentication with Firebase
+    firebase.auth().signInWithEmailAndPassword(emailInput, passwordInput)
+        .then((userCredential) => {
+            // Successful login
+            const user = userCredential.user;
+            showNotification(`Welcome back, ${user.email.split('@')[0]}!`, 'success');
+            
+            // Redirect based on user type
+            setTimeout(() => {
+                if (userType === 'agent') {
+                    window.location.href = 'agent-dashboard.html';
+                } else {
+                    window.location.href = 'dashboard.html';
+                }
+            }, 1000);
+        })
+        .catch((error) => {
+            console.error('Login error:', error.code, error.message);
+            let errorMessage = 'Invalid email or password';
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+                errorMessage = 'Invalid email or password';
+            } else if (error.code === 'auth/too-many-requests') {
+                errorMessage = 'Too many failed attempts. Please try again later.';
+            } else {
+                errorMessage = 'An error occurred. Please try again.';
+            }
+            showError(errorMessage);
+            
+            // Reset button
+            submitBtn.textContent = originalText;
+            submitBtn.disabled = false;
+        });
+}
+
+// Event listeners for login form submission
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Setting up form submission handlers');
+    
+    // Listen for form submission event in the login modal
+    document.addEventListener('submit', function(e) {
+        const form = e.target;
+        
+        // Check if this is a login form
+        if (form.id === 'customer-login-form' || form.id === 'agent-login-form') {
+            e.preventDefault();
+            console.log('Login form submitted:', form.id);
+            
+            const formData = new FormData(form);
+            const userType = form.id === 'agent-login-form' ? 'agent' : 'customer';
+            loginUser(formData, userType);
+        }
+    });
+    
+    // Setup buttons to show forms
+    const bookNowBtn = document.querySelector('.book-now');
+    if (bookNowBtn) {
+        bookNowBtn.addEventListener('click', function() {
+            showLoginForm('customer');
+        });
+    }
+
+    const loginBtn = document.querySelector('.login-btn');
+    if (loginBtn) {
+        loginBtn.addEventListener('click', function() {
+            showLoginForm('agent');
+        });
+    }
 }); 
