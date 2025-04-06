@@ -1201,7 +1201,7 @@ body {
     }
 }
 
-/* Book Now Styles */
+/* Book Now Styles - Modern Update */
 .booking-container {
     display: flex;
     gap: 30px;
@@ -1225,41 +1225,92 @@ body {
     text-decoration: none;
 }
 
-/* Filters Panel */
+/* Filters Panel - Modern Update */
 .filters-panel {
-    flex: 0 0 280px;
-    background-color: #fff;
-    border-radius: 12px;
-    padding: 20px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    flex: 0 0 300px;
+    background-color: var(--card-bg);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.filters-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.filters-panel::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+}
+
+.filters-panel:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 25px rgba(0, 0, 0, 0.12);
 }
 
 .filters-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .filters-header h2 {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-color);
     margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filters-header h2::before {
+    content: '\f0b0';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+    font-size: 16px;
+    color: var(--primary-color);
 }
 
 .reset-btn {
     background: none;
     border: none;
-    color: var(--primary);
+    color: var(--primary-color);
     font-weight: 500;
+    font-size: 14px;
     cursor: pointer;
+    padding: 8px 12px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.reset-btn::before {
+    content: '\f01e';
+    font-family: 'Font Awesome 6 Free';
+    font-weight: 900;
+}
+
+.reset-btn:hover {
+    background-color: rgba(37, 99, 235, 0.1);
 }
 
 .filter-group {
-    margin-bottom: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 24px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    animation: fadeIn 0.5s ease-in-out;
 }
 
 .filter-group:last-child {
@@ -1269,429 +1320,444 @@ body {
 }
 
 .filter-group h3 {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
-    color: var(--text-primary);
-    margin: 0 0 15px 0;
-}
-
-.filter-dropdown {
-    margin-bottom: 10px;
-}
-
-.filter-dropdown select {
-    width: 100%;
-    padding: 10px 15px;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    background-color: #fafafa;
-    font-size: 14px;
-    color: var(--text-primary);
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    background-size: 15px;
-}
-
-/* Price Range Slider */
-.price-range {
-    padding: 0 5px;
-}
-
-.price-inputs {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 10px;
-}
-
-.price-value {
-    font-size: 14px;
-    color: var(--text-primary);
-    font-weight: 500;
-}
-
-.range-slider {
-    position: relative;
-    height: 5px;
-    margin: 15px 0;
-}
-
-.range-slider .slider-track {
-    position: absolute;
-    width: 100%;
-    height: 5px;
-    background: #e0e0e0;
-    border-radius: 5px;
-}
-
-.range-slider input[type="range"] {
-    -webkit-appearance: none;
-    width: 100%;
-    height: 5px;
-    background: transparent;
-    position: absolute;
-    pointer-events: none;
-}
-
-.range-slider input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    height: 16px;
-    width: 16px;
-    border-radius: 50%;
-    background: var(--primary);
-    cursor: pointer;
-    pointer-events: auto;
-    margin-top: -5px;
-}
-
-/* Checkbox Styles */
-.checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.checkbox-item {
+    color: var(--text-color);
+    margin: 0 0 16px 0;
     display: flex;
     align-items: center;
-    cursor: pointer;
-    position: relative;
-    padding-left: 28px;
+    gap: 8px;
 }
 
-.checkbox-item input {
-    position: absolute;
-    opacity: 0;
-    cursor: pointer;
-    height: 0;
-    width: 0;
-}
-
-.checkmark {
-    position: absolute;
-    left: 0;
-    height: 18px;
-    width: 18px;
-    background-color: #fafafa;
-    border: 1px solid #e0e0e0;
-    border-radius: 4px;
-}
-
-.checkbox-item input:checked ~ .checkmark {
-    background-color: var(--primary);
-    border-color: var(--primary);
-}
-
-.checkmark:after {
-    content: "";
-    position: absolute;
-    display: none;
-}
-
-.checkbox-item input:checked ~ .checkmark:after {
-    display: block;
-}
-
-.checkbox-item .checkmark:after {
-    left: 6px;
-    top: 2px;
-    width: 4px;
-    height: 8px;
-    border: solid white;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-}
-
-.checkbox-item span {
-    font-size: 14px;
-    color: var(--text-primary);
-}
-
-/* Color Selection */
-.color-options {
+/* Vehicle Type Toggle - Modern Update */
+.vehicle-type-toggle {
     display: flex;
-    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 15px;
 }
 
-.color-item {
+.vehicle-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.vehicle-btn i {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: var(--text-light);
+    transition: color 0.3s ease;
+}
+
+.vehicle-btn span {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-light);
+    transition: color 0.3s ease;
+}
+
+.vehicle-btn.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 5px 15px rgba(37, 99, 235, 0.3);
+    transform: translateY(-2px);
+}
+
+.vehicle-btn.active i,
+.vehicle-btn.active span {
+    color: white;
+}
+
+.vehicle-btn:hover:not(.active) {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Car Category Checkboxes - Modern Update */
+.category-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 5px;
+}
+
+.category-item {
     display: flex;
     align-items: center;
-    gap: 8px;
     cursor: pointer;
-    width: calc(50% - 5px);
+    position: relative;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background-color: rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+}
+
+.category-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.category-item input:checked ~ .checkmark {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 10px rgba(37, 99, 235, 0.5);
+}
+
+/* Dropdowns - Modern Update */
+.filter-dropdown {
+    margin-bottom: 12px;
+}
+
+.filter-dropdown select {
+    width: 100%;
+    padding: 14px 15px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.05);
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-color);
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 15px;
+    transition: all 0.3s ease;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.filter-dropdown select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    outline: none;
+}
+
+/* Date Picker - Modern Update */
+.date-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.date-field, .time-field {
+    position: relative;
+}
+
+.date-field label, .time-field label {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-color);
     margin-bottom: 8px;
 }
 
-.color-item input {
-    position: absolute;
-    opacity: 0;
-}
-
-.color-circle {
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    display: inline-block;
-}
-
-.color-circle.black { background-color: #000; }
-.color-circle.white { background-color: #fff; border: 1px solid #e0e0e0; }
-.color-circle.silver { background-color: #c0c0c0; }
-.color-circle.grey { background-color: #808080; }
-.color-circle.darkblue { background-color: #00008b; }
-.color-circle.brown { background-color: #8b4513; }
-
-.color-item span {
-    font-size: 14px;
-    color: var(--text-primary);
-}
-
-.color-item input:checked + .color-circle {
-    box-shadow: 0 0 0 2px var(--primary);
-}
-
-.view-more {
-    color: var(--primary);
+.date-field input[type="date"],
+.date-field input[type="time"],
+.time-field input[type="time"] {
+    width: 100%;
+    padding: 14px 14px 14px 45px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    background-color: rgba(255, 255, 255, 0.05);
     font-size: 14px;
     font-weight: 500;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+    color: var(--text-color);
+    transition: all 0.3s ease;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.view-more i {
-    font-size: 12px;
+.date-field input[type="date"]:focus,
+.date-field input[type="time"]:focus,
+.time-field input[type="time"]:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    outline: none;
 }
 
-/* Toggle Switch */
-.toggle-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.switch {
+.input-with-icon {
     position: relative;
-    display: inline-block;
-    width: 40px;
-    height: 20px;
 }
 
-.switch input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-}
-
-.slider {
+.input-with-icon i {
     position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #e0e0e0;
-    transition: .4s;
-    border-radius: 34px;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+    font-size: 16px;
+    pointer-events: none;
 }
 
-.slider:before {
-    position: absolute;
-    content: "";
-    height: 16px;
-    width: 16px;
-    left: 2px;
-    bottom: 2px;
-    background-color: white;
-    transition: .4s;
-    border-radius: 50%;
-}
-
-input:checked + .slider {
-    background-color: var(--primary);
-}
-
-input:checked + .slider:before {
-    transform: translateX(20px);
-}
-
-.toggle-option span {
-    font-size: 14px;
-    color: var(--text-primary);
-}
-
-/* Button Toggle */
-.button-toggle {
+/* Apply Filters Button - Modern Update */
+.apply-filters-btn {
+    width: 100%;
     display: flex;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.toggle-btn {
-    flex: 1;
-    padding: 8px;
-    border: none;
-    background: #fafafa;
-    font-size: 14px;
-    color: var(--text-primary);
-    cursor: pointer;
-}
-
-.toggle-btn.active {
-    background: var(--primary);
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 16px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     color: white;
-    font-weight: 500;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 15px rgba(37, 99, 235, 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 15px;
 }
 
-/* Car Listings */
+.apply-filters-btn i {
+    font-size: 16px;
+}
+
+.apply-filters-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 20px rgba(37, 99, 235, 0.4);
+}
+
+.apply-filters-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 5px 10px rgba(37, 99, 235, 0.3);
+}
+
+/* Car Listings - Modern Update */
 .car-listings {
     flex: 1;
 }
 
 .car-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+    margin-bottom: 30px;
 }
 
+/* Car Card - Modern Update */
 .car-card {
-    background: white;
-    border-radius: 12px;
+    background-color: var(--card-bg);
+    border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
     position: relative;
-    transition: transform 0.3s, box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
 }
 
 .car-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
 }
 
 .car-status {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 15px;
+    left: 15px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
-    z-index: 2;
+    gap: 8px;
+    z-index: 1;
 }
 
 .status-pill {
-    font-size: 12px;
-    padding: 3px 8px;
-    border-radius: 20px;
-    font-weight: 500;
     display: inline-block;
+    padding: 5px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(4px);
 }
 
 .status-pill.new {
-    background-color: var(--primary);
+    background-color: rgba(236, 72, 153, 0.8);
     color: white;
 }
 
 .status-pill.available {
-    background-color: #e8f5e9;
-    color: #2e7d32;
+    background-color: rgba(16, 185, 129, 0.8);
+    color: white;
 }
 
 .status-pill.booked {
-    background-color: #fff8e1;
-    color: #ff8f00;
+    background-color: rgba(245, 158, 11, 0.8);
+    color: white;
 }
 
 .car-favorite {
     position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 2;
+    top: 15px;
+    right: 15px;
+    z-index: 1;
 }
 
 .favorite-btn {
-    background: white;
-    border: none;
-    width: 30px;
-    height: 30px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+    border: none;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    color: white;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
 .favorite-btn i {
-    color: #bdbdbd;
-    font-size: 14px;
+    font-size: 16px;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 .favorite-btn.active i {
-    color: #f44336;
+    color: #f43f5e;
+    transform: scale(1.2);
+}
+
+.favorite-btn:hover i {
+    transform: scale(1.2);
 }
 
 .car-image {
-    padding: 15px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 150px;
-    background: #f7f9fc;
+    height: 180px;
+    position: relative;
+    overflow: hidden;
+}
+
+.car-image::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 50px;
+    background: linear-gradient(to top, var(--card-bg), transparent);
+    z-index: 1;
 }
 
 .car-image img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.5s ease;
+}
+
+.car-card:hover .car-image img {
+    transform: scale(1.05);
 }
 
 .car-info {
-    padding: 15px;
+    padding: 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
 }
 
 .car-header h3 {
-    margin: 0;
     font-size: 16px;
     font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 5px;
+    color: var(--text-color);
+    margin: 0 0 5px 0;
+    line-height: 1.3;
 }
 
 .car-model {
+    font-size: 13px;
+    color: var(--text-light);
     margin: 0;
-    font-size: 14px;
-    color: var(--text-secondary);
+}
+
+.car-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 5px 0;
+}
+
+.car-features span {
+    font-size: 12px;
+    color: var(--text-light);
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 5px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.car-features span i {
+    font-size: 12px;
+    color: var(--primary-color);
 }
 
 .car-price {
-    margin-top: 15px;
+    margin-top: auto;
 }
 
 .car-price p {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-color);
     margin: 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--primary);
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
 }
 
 .car-price span {
-    font-size: 14px;
-    font-weight: 400;
-    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-light);
 }
 
-/* Promo Card */
-.promo-card {
-    display: flex;
-    padding: 15px;
-    background: linear-gradient(135deg, #3f51b5, #2196f3);
+.book-now-btn {
+    border: none;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
     color: white;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.book-now-btn:hover {
+    background: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-color) 100%);
+}
+
+.book-now-btn:disabled {
+    background: linear-gradient(135deg, #64748b, #334155);
+    cursor: not-allowed;
+    opacity: 0.8;
+}
+
+/* Promotion Card */
+.promo-card {
+    background: linear-gradient(135deg, #4338ca, #6366f1);
+    color: white;
+    padding: 20px;
+    display: flex;
     align-items: center;
+    justify-content: space-between;
+    gap: 20px;
 }
 
 .promo-content {
@@ -1701,6 +1767,7 @@ input:checked + .slider:before {
 .promo-content h3 {
     margin: 0 0 10px 0;
     font-size: 18px;
+    font-weight: 600;
 }
 
 .promo-content p {
@@ -1710,31 +1777,45 @@ input:checked + .slider:before {
 }
 
 .read-more-btn {
-    background: rgba(255, 255, 255, 0.2);
+    background-color: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
     padding: 8px 15px;
     border-radius: 20px;
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-block;
+}
+
+.read-more-btn:hover {
+    background-color: rgba(255, 255, 255, 0.3);
 }
 
 .promo-icon {
-    width: 60px;
-    height: 60px;
+    width: 80px;
+    height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
 }
 
 .promo-icon img {
-    width: 100%;
-    height: auto;
-    filter: brightness(0) invert(1);
-    opacity: 0.8;
+    width: 50px;
+    height: 50px;
+    object-fit: contain;
 }
 
-/* Responsive adjustments */
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .car-grid {
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+}
+
 @media (max-width: 992px) {
     .booking-container {
         flex-direction: column;
@@ -1743,10 +1824,33 @@ input:checked + .slider:before {
     .filters-panel {
         flex: none;
         width: 100%;
+        position: relative;
+        top: 0;
+        max-height: none;
+        margin-bottom: 30px;
+    }
+    
+    .category-options {
+        grid-template-columns: repeat(3, 1fr);
     }
     
     .car-grid {
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .category-options {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .date-picker {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
+    
+    .time-field {
+        grid-column: span 2;
     }
 }
 
@@ -1754,187 +1858,12 @@ input:checked + .slider:before {
     .car-grid {
         grid-template-columns: 1fr;
     }
-}
-
-/* Vehicle Type Toggle */
-.vehicle-type-toggle {
-    display: flex;
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.vehicle-btn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background-color: #f5f5f5;
-    border: 1px solid #e0e0e0;
-    border-radius: 10px;
-    padding: 12px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.vehicle-btn i {
-    font-size: 22px;
-    margin-bottom: 8px;
-    color: #666;
-}
-
-.vehicle-btn span {
-    font-size: 14px;
-    font-weight: 500;
-    color: #333;
-}
-
-.vehicle-btn.active {
-    background-color: var(--primary);
-    border-color: var(--primary);
-}
-
-.vehicle-btn.active i,
-.vehicle-btn.active span {
-    color: white;
-}
-
-.vehicle-btn:hover:not(.active) {
-    background-color: #e8e8e8;
-}
-
-/* Car Category Options */
-.category-options {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-    margin-top: 10px;
-}
-
-.category-item {
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-    position: relative;
-    padding-left: 28px;
-}
-
-/* Pickup Schedule */
-.date-picker {
-    margin-top: 10px;
-}
-
-.date-field, .time-field {
-    margin-bottom: 15px;
-}
-
-.date-field label, .time-field label {
-    display: block;
-    font-size: 13px;
-    margin-bottom: 5px;
-    color: var(--text-secondary);
-}
-
-.date-field input[type="date"],
-.time-field input[type="time"] {
-    width: 100%;
-    padding: 10px 35px 10px 35px;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 14px;
-    background-color: #fafafa;
-    color: var(--text-primary);
-}
-
-.date-field input[type="date"]:focus,
-.time-field input[type="time"]:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 2px rgba(var(--primary-rgb), 0.1);
-}
-
-/* Car Features */
-.car-features {
-    display: flex;
-    gap: 12px;
-    margin: 10px 0;
-}
-
-.car-features span {
-    font-size: 12px;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.car-features span i {
-    font-size: 12px;
-    color: var(--primary);
-}
-
-/* Apply Filters Button */
-.apply-filters-btn {
-    width: 100%;
-    background-color: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 8px;
-    transition: background-color 0.3s;
-    margin-top: 20px;
-}
-
-.apply-filters-btn:hover {
-    background-color: var(--primary-dark);
-}
-
-.apply-filters-btn i {
-    font-size: 14px;
-}
-
-/* Book Now Button */
-.book-now-btn {
-    width: 100%;
-    background-color: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 0 0 12px 12px;
-    padding: 12px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    margin-top: auto;
-}
-
-.book-now-btn:hover {
-    background-color: var(--primary-dark);
-}
-
-.book-now-btn:disabled {
-    background-color: #e0e0e0;
-    color: #a0a0a0;
-    cursor: not-allowed;
-}
-
-/* Color Circles Update */
-.color-circle.red { background-color: #e53935; }
-.color-circle.blue { background-color: #1e88e5; }
-
-/* Car Card Update for Book Now Button */
-.car-card {
-    display: flex;
-    flex-direction: column;
-}
-
-.car-info {
-    flex-grow: 1;
+    
+    .date-picker {
+        grid-template-columns: 1fr;
+    }
+    
+    .time-field {
+        grid-column: auto;
+    }
 } 
