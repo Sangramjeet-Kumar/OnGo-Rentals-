@@ -10,168 +10,158 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-firebase.initializeApp(firebaseConfig);
+if (!firebase.apps.length) {
+    try {
+        firebase.initializeApp(firebaseConfig);
+        console.log('Firebase initialized successfully');
+    } catch (error) {
+        console.error('Error initializing Firebase:', error);
+    }
+}
 
 // Initialize Firebase Authentication and Firestore
 const auth = firebase.auth();
 const db = firebase.firestore();
 
-// Set persistence based on "Remember me" checkbox
-async function setPersistence(rememberMe) {
-  const persistence = rememberMe 
-    ? firebase.auth.Auth.Persistence.LOCAL 
-    : firebase.auth.Auth.Persistence.SESSION;
-  
-  return auth.setPersistence(persistence);
+// Sign in existing user
+async function signInUser(email, password, rememberMe) {
+    try {
+        // Sign in with email and password
+        const userCredential = await auth.signInWithEmailAndPassword(email, password);
+        console.log('User signed in successfully:', userCredential.user.email);
+        
+        // Get user data from Firestore
+        const userDoc = await db.collection('users').doc(userCredential.user.uid).get();
+        if (!userDoc.exists) {
+            throw new Error('User data not found in Firestore');
+        }
+        
+        const userData = userDoc.data();
+        console.log('Retrieved user data:', userData); // Debug log
+        
+        let userInfo = {
+            uid: userCredential.user.uid,
+            email: userCredential.user.email,
+            userType: userData.userType
+        };
+        
+        // If user is an agent, get agent data
+        if (userData.userType === 'agent') {
+            try {
+                const agentDoc = await db.collection('agents').doc(userCredential.user.uid).get();
+                if (agentDoc.exists) {
+                    const agentData = agentDoc.data();
+                    userInfo.name = agentData.name;
+                    console.log('Retrieved agent data:', agentData);
+                } else {
+                    console.warn('Agent document not found');
+                    userInfo.name = userData.name || email.split('@')[0];
+                }
+            } catch (error) {
+                console.error('Error fetching agent data:', error);
+                userInfo.name = userData.name || email.split('@')[0];
+            }
+        } else {
+            // For non-agent users
+            userInfo.name = userData.name || email.split('@')[0];
+        }
+        
+        console.log('Final user info:', userInfo); // Debug log
+        
+        // Store in localStorage if rememberMe is true
+        if (rememberMe) {
+            localStorage.setItem('user', JSON.stringify(userInfo));
+        }
+        
+        // Always store in sessionStorage
+        sessionStorage.setItem('user', JSON.stringify(userInfo));
+        
+        return { userCredential, userData: userInfo };
+    } catch (error) {
+        console.error('Error signing in:', error);
+        throw error;
+    }
 }
 
 // Create a new user
 async function createUser(email, password, name) {
-  try {
-    // Create the user in Firebase Auth
-    const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-    
-    // Add user data to Firestore
-    await db.collection('users').doc(userCredential.user.uid).set({
-      name: name,
-      email: email,
-      userType: 'customer',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    
-    return userCredential;
-  } catch (error) {
-    console.error('Error creating user:', error);
-    throw error;
-  }
-}
-
-// Sign in existing user
-async function signInUser(email, password, rememberMe) {
-  try {
-    await setPersistence(rememberMe);
-    const userCredential = await auth.signInWithEmailAndPassword(email, password);
-    
-    // Get user data from Firestore
-    const userDoc = await db.collection('users').doc(userCredential.user.uid).get();
-    if (!userDoc.exists) {
-      throw new Error('User data not found');
+    try {
+        // Create the user in Firebase Auth
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        
+        // Add user data to Firestore
+        const userData = {
+            name: name,
+            email: email,
+            userType: 'customer',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+        
+        await db.collection('users').doc(userCredential.user.uid).set(userData);
+        
+        // Trigger MongoDB sync by calling the sync service
+        try {
+            const response = await fetch('/api/sync/user', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    firebaseUID: userCredential.user.uid,
+                    ...userData
+                })
+            });
+            
+            if (!response.ok) {
+                console.error('Failed to sync user to MongoDB:', await response.text());
+            }
+        } catch (syncError) {
+            console.error('Error syncing to MongoDB:', syncError);
+            // Don't throw here as the user is already created in Firebase
+        }
+        
+        return userCredential;
+    } catch (error) {
+        console.error('Error creating user:', error);
+        throw error;
     }
-    
-    return userCredential;
-  } catch (error) {
-    console.error('Error signing in:', error);
-    throw error;
-  }
 }
 
 // Sign out user
 async function signOutUser() {
-  try {
-    await auth.signOut();
-  } catch (error) {
-    console.error('Error signing out:', error);
-    throw error;
-  }
+    try {
+        await auth.signOut();
+        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
+    } catch (error) {
+        console.error('Error signing out:', error);
+        throw error;
+    }
 }
 
 // Send password reset email
 async function resetPassword(email) {
-  try {
-    await auth.sendPasswordResetEmail(email);
-  } catch (error) {
-    console.error('Error sending reset email:', error);
-    throw error;
-  }
+    try {
+        await auth.sendPasswordResetEmail(email);
+    } catch (error) {
+        console.error('Error sending reset email:', error);
+        throw error;
+    }
+}
+
+// Get stored user data
+function getStoredUserData() {
+    const sessionUser = sessionStorage.getItem('user');
+    const localUser = localStorage.getItem('user');
+    return sessionUser ? JSON.parse(sessionUser) : localUser ? JSON.parse(localUser) : null;
 }
 
 // Check if user is logged in
 function getCurrentUser() {
-  return auth.currentUser;
+    return auth.currentUser;
 }
 
 // Listen for auth state changes
 function onAuthStateChanged(callback) {
-  return auth.onAuthStateChanged(callback);
-}
-
-// Check user role and redirect if needed
-async function checkUserRole() {
-  console.log('Checking user role...');
-  
-  // Prevent redirect loops with a timestamp-based check
-  const lastRedirectTime = parseInt(sessionStorage.getItem('lastRedirectTime') || '0');
-  const currentTime = Date.now();
-  
-  // If we've redirected within the last 3 seconds, don't redirect again
-  if (currentTime - lastRedirectTime < 3000) {
-    console.log('Recently redirected, skipping checkUserRole');
-    return null;
-  }
-  
-  const user = auth.currentUser;
-  
-  if (!user) {
-    console.log('No user logged in during checkUserRole');
-    
-    // Only redirect if not already on the index page to prevent loops
-    const onIndexPage = window.location.pathname.includes('index.html') || 
-                      window.location.pathname.endsWith('/') ||
-                      window.location.pathname === '';
-    
-    if (!onIndexPage) {
-      console.log('No user logged in, redirecting to login page...');
-      sessionStorage.setItem('lastRedirectTime', currentTime.toString());
-      sessionStorage.setItem('redirectReason', 'not_logged_in');
-      window.location.replace('index.html');
-    }
-    return null;
-  }
-  
-  try {
-    console.log('User is logged in, checking role in Firestore...');
-    // Get user data from Firestore
-    const userDoc = await db.collection('users').doc(user.uid).get();
-    
-    if (!userDoc.exists) {
-      console.error('User document does not exist');
-      // If user document doesn't exist, log out and redirect
-      await signOutUser();
-      sessionStorage.setItem('lastRedirectTime', currentTime.toString());
-      sessionStorage.setItem('redirectReason', 'no_user_doc');
-      window.location.replace('index.html');
-      return null;
-    }
-    
-    const userData = userDoc.data();
-    console.log('User role found:', userData.userType);
-    
-    // Get current page
-    const currentPath = window.location.pathname;
-    const currentPage = currentPath.split('/').pop() || 'index.html';
-    console.log('Current page:', currentPage);
-    
-    // Agent check - if agent is on customer dashboard, redirect
-    if (userData.userType === 'agent' && currentPage === 'dashboard.html') {
-      console.log('Agent on customer dashboard, redirecting to agent dashboard');
-      sessionStorage.setItem('lastRedirectTime', currentTime.toString());
-      sessionStorage.setItem('redirectReason', 'agent_to_agent_dashboard');
-      window.location.replace('agent-dashboard.html');
-      return null;
-    }
-    
-    // Customer check - if customer is on agent dashboard, redirect
-    if (userData.userType !== 'agent' && currentPage === 'agent-dashboard.html') {
-      console.log('Customer on agent dashboard, redirecting to customer dashboard');
-      sessionStorage.setItem('lastRedirectTime', currentTime.toString());
-      sessionStorage.setItem('redirectReason', 'customer_to_dashboard');
-      window.location.replace('dashboard.html');
-      return null;
-    }
-    
-    return userData;
-  } catch (error) {
-    console.error('Error checking user role:', error);
-    return null;
-  }
+    return auth.onAuthStateChanged(callback);
 } 

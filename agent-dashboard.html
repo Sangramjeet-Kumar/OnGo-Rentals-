@@ -426,9 +426,10 @@
                                 <div class="form-group">
                                     <label for="availabilityStatus">Availability Status</label>
                                     <select id="availabilityStatus" name="availabilityStatus" required>
-                                        <option value="available">Available</option>
+                                        <option value="active">Available</option>
                                         <option value="maintenance">Maintenance</option>
-                                        <option value="rented">Rented</option>
+                                        <option value="inactive">Not Available</option>
+                                        <option value="booked">Booked</option>
                                     </select>
                                 </div>
                                 <div class="form-group">
@@ -495,53 +496,39 @@
                             </div>
                         </div>
                         
-                        <div class="form-section">
-                            <h3>Images</h3>
-                            <div class="image-upload-container">
-                                <div class="image-upload">
-                                    <label for="primaryImage">
-                                        <div class="upload-placeholder">
-                                            <i class="fas fa-cloud-upload-alt"></i>
-                                            <p>Upload Primary Image</p>
-                                        </div>
-                                    </label>
-                                    <input type="file" id="primaryImage" name="primaryImage" accept="image/*" required>
-                                </div>
-                                
-                                <div class="additional-images">
-                                    <div class="image-upload">
-                                        <label for="additionalImage1">
-                                            <div class="upload-placeholder small">
-                                                <i class="fas fa-plus"></i>
-                                            </div>
-                                        </label>
-                                        <input type="file" id="additionalImage1" name="additionalImage1" accept="image/*">
-                                    </div>
-                                    <div class="image-upload">
-                                        <label for="additionalImage2">
-                                            <div class="upload-placeholder small">
-                                                <i class="fas fa-plus"></i>
-                                            </div>
-                                        </label>
-                                        <input type="file" id="additionalImage2" name="additionalImage2" accept="image/*">
-                                    </div>
-                                    <div class="image-upload">
-                                        <label for="additionalImage3">
-                                            <div class="upload-placeholder small">
-                                                <i class="fas fa-plus"></i>
-                                            </div>
-                                        </label>
-                                        <input type="file" id="additionalImage3" name="additionalImage3" accept="image/*">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
                         <div class="form-actions">
                             <button type="button" class="cancel-btn">Cancel</button>
                             <button type="submit" class="submit-btn">Add Vehicle</button>
                         </div>
                     </form>
+                </div>
+            </section>
+            
+            <!-- Current Rentals Section -->
+            <section id="current-rentals" class="content-section">
+                <div class="section-header">
+                    <h1>Current Rentals</h1>
+                    <div class="filter-controls">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="upcoming">Upcoming Returns</button>
+                    </div>
+                </div>
+                
+                <div class="rentals-container">
+                    <div class="rentals-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading current rentals...</p>
+                    </div>
+                    
+                    <div class="rentals-empty hidden">
+                        <i class="fas fa-car-alt"></i>
+                        <h3>No Current Rentals</h3>
+                        <p>All your vehicles are currently available.</p>
+                    </div>
+                    
+                    <div class="rentals-list">
+                        <!-- Rental items will be populated here -->
+                    </div>
                 </div>
             </section>
             

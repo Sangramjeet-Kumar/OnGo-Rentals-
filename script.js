@@ -1,115 +1,3 @@
-// Add this at the beginning of the file, after any other initialization
-// Global flag to prevent multiple redirects
-let redirectionInProgress = false;
-
-// Use a localStorage flag instead of a variable that gets reset on page reload
-if (localStorage.getItem('isRedirecting')) {
-    console.log('Redirection flag found in localStorage, clearing it');
-    localStorage.removeItem('isRedirecting');
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded - Starting initialization');
-    
-    // Generate visual elements first, before any auth checks
-    try {
-        generateStars();
-        addBackgroundStyles();
-        addFlickerAnimation();
-        animateCar();
-        addParallaxEffect();
-        createSmokeEffect();
-    } catch (error) {
-        console.error('Error initializing visual elements:', error);
-    }
-    
-    // IMPORTANT: Only perform redirection logic on the index page
-    const onIndexPage = window.location.pathname.includes('index.html') || 
-                       window.location.pathname.endsWith('/') ||
-                       window.location.pathname === '';
-                       
-    if (onIndexPage) {
-        console.log('On index page, setting up auth state change listener for redirection');
-        
-        // Check for recent redirects to prevent loops
-        const lastRedirectTime = parseInt(sessionStorage.getItem('lastRedirectTime') || '0');
-        const currentTime = Date.now();
-        
-        // If we've redirected within the last 3 seconds, don't check auth state yet
-        if (currentTime - lastRedirectTime < 3000) {
-            console.log('Recently redirected to index page, delaying auth check');
-            // Set up login form handlers first
-            setupLoginForm();
-            setupRegistrationForm();
-            setupForgotPasswordForm();
-            
-            // Wait a bit before checking auth state to prevent immediate redirects
-            setTimeout(() => {
-                setupAuthStateListener();
-            }, 2000);
-        } else {
-            // Normal flow - check auth state immediately
-            setupAuthStateListener();
-            setupLoginForm();
-            setupRegistrationForm();
-            setupForgotPasswordForm();
-        }
-    } else {
-        console.log('Not on index page, skipping automatic redirection on load');
-    }
-});
-
-// Function to set up the auth state change listener
-function setupAuthStateListener() {
-    // Set up a one-time auth state listener to prevent multiple redirects
-    const unsubscribe = auth.onAuthStateChanged(user => {
-        console.log('Auth state change detected on index page');
-        
-        if (user) {
-            console.log('User already logged in on index page, checking role...');
-            
-            // Get user data from Firestore to determine role
-            db.collection('users').doc(user.uid).get()
-                .then(doc => {
-                    if (doc.exists) {
-                        const userData = doc.data();
-                        console.log('User role found:', userData.userType);
-                        
-                        // Set timestamp to prevent redirect loops
-                        const currentTime = Date.now();
-                        sessionStorage.setItem('lastRedirectTime', currentTime.toString());
-                        
-                        // Redirect based on user type - use replace instead of href
-                        if (userData.userType === 'agent') {
-                            console.log('Redirecting agent to agent dashboard');
-                            window.location.replace('agent-dashboard.html');
-                        } else {
-                            console.log('Redirecting customer to customer dashboard');
-                            window.location.replace('dashboard.html');
-                        }
-                    } else {
-                        // If no user data exists
-                        console.error('User document does not exist');
-                        
-                        // Sign out user if no user data exists
-                        auth.signOut().then(() => {
-                            showNotification('User data not found. Please login again.', 'error');
-                        });
-                    }
-                })
-                .catch(error => {
-                    console.error('Error checking user role:', error);
-                    showNotification('Error verifying your account. Please try again.', 'error');
-                });
-        } else {
-            console.log('No user logged in on index page - no redirection needed');
-        }
-        
-        // Unsubscribe after first auth check to prevent multiple checks
-        unsubscribe();
-    });
-}
-
 // Generate buildings for the cityscape
 function generateCityscape() {
     const cityscape = document.getElementById('cityscape');
@@ -360,36 +248,22 @@ function addFlickerAnimation() {
 function showLoginForm(type) {
     const loginForm = document.getElementById('loginForm');
     const loginTitle = document.getElementById('loginTitle');
-    const form = document.querySelector('#loginForm form');
     
-    // Set the title based on login type
-    if (type === 'agent') {
-        loginTitle.textContent = 'Agent Login';
-        form.id = 'agent-login-form';
-    } else {
-        loginTitle.textContent = 'Customer Login';
-        form.id = 'customer-login-form';
+    loginTitle.textContent = type === 'agent' 
+        ? 'Agent Login' 
+        : 'Customer Login';
+    
+    // Add direct onclick attribute to login button
+    const loginButton = document.getElementById('loginButton');
+    if (loginButton) {
+        loginButton.onclick = handleLogin;
     }
     
-    // Clear any previous inputs
-    document.getElementById('email').value = '';
-    document.getElementById('password').value = '';
-    document.getElementById('rememberMe').checked = false;
-    
-    // Clear any previous errors
-    const errorMessage = document.getElementById('loginErrorMessage');
-    errorMessage.textContent = '';
-    errorMessage.classList.remove('active');
-    
-    // Show the form with animation
     loginForm.style.display = 'flex';
-    setTimeout(() => {
+    requestAnimationFrame(() => {
         loginForm.style.opacity = '1';
         loginForm.classList.add('active');
-    }, 10);
-    
-    // Focus the email field
-    document.getElementById('email').focus();
+    });
 }
 
 // Hide login form with animation
@@ -533,89 +407,78 @@ function hideResetPasswordForm() {
     }, 300);
 }
 
-// Helper to show error message
-function showError(message) {
-    const errorElement = document.querySelector('.error-message');
-    if (errorElement) {
-        errorElement.textContent = message;
-        errorElement.classList.add('active');
-    } else {
-        console.error('Error element not found, message:', message);
-    }
+// Show error message
+function showError(elementId, message) {
+    const errorElement = document.getElementById(elementId);
+    errorElement.textContent = message;
+    errorElement.classList.add('active');
+    
+    // Hide error after 5 seconds
+    setTimeout(() => {
+        errorElement.classList.remove('active');
+    }, 5000);
 }
 
 // Handle login form submission
 async function handleLogin() {
-    console.log('Login button clicked');
     const email = document.getElementById('email').value;
     const password = document.getElementById('password').value;
     const rememberMe = document.getElementById('rememberMe').checked;
     
-    // Track if this is an agent login
-    const isAgentLogin = document.getElementById('loginTitle') && 
-                         document.getElementById('loginTitle').textContent.includes('Agent');
-    
-    console.log('Login attempt with email:', email, 'as', isAgentLogin ? 'agent' : 'customer');
-    
     if (!email || !password) {
-        showError('Please enter both email and password.');
+        showError('loginErrorMessage', 'Please enter both email and password');
         return;
     }
-    
+
     // Show loading state
     const loginButton = document.getElementById('loginButton');
     loginButton.textContent = 'Logging in...';
     loginButton.disabled = true;
-    
+
     try {
-        // Check if Firebase is initialized properly
-        if (!firebase || !auth || !db) {
-            throw new Error('Firebase is not properly initialized');
+        // Sign in user and get user data
+        const { userCredential, userData } = await signInUser(email, password, rememberMe);
+        
+        // Get the login type from the login form title
+        const loginTitle = document.getElementById('loginTitle').textContent;
+        const isAgentLogin = loginTitle.includes('Agent');
+        const isCustomerLogin = loginTitle.includes('Customer');
+        
+        // Check if a customer is trying to log in through agent login
+        if (isAgentLogin && userData.userType === 'customer') {
+            throw {
+                code: 'auth/unauthorized-access',
+                message: 'Customer accounts cannot access the agent section. Please use the regular login.'
+            };
         }
         
-        // Try to sign in
-        const userCredential = await auth.signInWithEmailAndPassword(email, password);
-        console.log('Sign in successful');
-        
-        // Get user data from Firestore
-        const userDoc = await db.collection('users').doc(userCredential.user.uid).get();
-        
-        if (!userDoc.exists) {
-            console.error('User document does not exist');
-            throw new Error('User data not found');
+        // Check if an agent is trying to log in through customer login
+        if (isCustomerLogin && userData.userType === 'agent') {
+            throw {
+                code: 'auth/unauthorized-access',
+                message: 'Agent accounts cannot access the customer section. Please use the agent login.'
+            };
         }
         
-        const userData = userDoc.data();
+        // Show success notification with actual name
+        const displayName = userData.name || 'User';
+        const userType = userData.userType.charAt(0).toUpperCase() + userData.userType.slice(1);
+        showNotification(`Welcome back, ${displayName}!`, 'success');
         
-        // Check if user type matches login attempt type
-        if (isAgentLogin && userData.userType !== 'agent') {
-            console.log('Customer attempting to log in as agent');
-            await auth.signOut();
-            showError('This account does not have agent privileges.');
-            loginButton.textContent = 'Login';
-            loginButton.disabled = false;
-            return;
-        }
-        
-        // Login successful
-        hideLoginForm();
-        showNotification('Login successful! Redirecting to dashboard...', 'success');
-        
-        // Set redirection flag to prevent loops
-        localStorage.setItem('isRedirecting', 'true');
-        
-        // Redirect to appropriate dashboard based on user type
+        // Redirect based on user type after a short delay
         setTimeout(() => {
-            if (userData.userType === 'agent') {
-                window.location.replace('agent-dashboard.html');
-            } else {
-                window.location.replace('dashboard.html');
+            if (userData.userType === 'customer') {
+                window.location.href = 'dashboard.html';
+            } else if (userData.userType === 'agent') {
+                window.location.href = 'agent-dashboard.html';
+            } else if (userData.userType === 'admin') {
+                window.location.href = 'admin-dashboard.html';
             }
         }, 1000);
     } catch (error) {
-        console.error('Login error details:', error);
+        console.error('Login error:', error);
         
-        // Handle errors
+        // Handle specific error cases
         let errorMessage = 'Failed to login. Please check your credentials.';
         
         switch (error.code) {
@@ -632,11 +495,14 @@ async function handleLogin() {
             case 'auth/network-request-failed':
                 errorMessage = 'Network error. Please check your internet connection.';
                 break;
+            case 'auth/unauthorized-access':
+                errorMessage = error.message;
+                break;
             default:
-                errorMessage = `Error: ${error.message || error}`;
+                errorMessage = `An unexpected error occurred: ${error.message}`;
         }
         
-        showError(errorMessage);
+        showError('loginErrorMessage', errorMessage);
     } finally {
         // Reset button state
         loginButton.textContent = 'Login';
@@ -693,24 +559,20 @@ async function handleSignup() {
     const password = document.getElementById('signupPassword').value;
     const confirmPassword = document.getElementById('signupConfirmPassword').value;
     
-    // Track if the signup is from agent login form
-    const isAgentSignup = document.getElementById('loginTitle') && 
-                          document.getElementById('loginTitle').textContent.includes('Agent');
-    
     console.log('Signup attempt with email:', email);
     
     if (!name || !email || !password || !confirmPassword) {
-        showError('Please fill in all fields.');
+        showError('signupErrorMessage', 'Please fill in all fields.');
         return;
     }
     
     if (password !== confirmPassword) {
-        showError('Passwords do not match.');
+        showError('signupErrorMessage', 'Passwords do not match.');
         return;
     }
     
     if (password.length < 6) {
-        showError('Password must be at least 6 characters long.');
+        showError('signupErrorMessage', 'Password must be at least 6 characters long.');
         return;
     }
     
@@ -722,67 +584,82 @@ async function handleSignup() {
     try {
         console.log('Attempting to create user...');
         
-        // Create user account
-        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-        console.log('User account created:', userCredential);
+        // Check if Firebase is initialized properly
+        if (!firebase || !auth || !db) {
+            throw new Error('Firebase is not properly initialized');
+        }
         
-        // Update display name
-        await userCredential.user.updateProfile({
-            displayName: name
-        });
-        console.log('Display name updated');
+        // Create user in Authentication
+        let userCredential;
+        try {
+            userCredential = await auth.createUserWithEmailAndPassword(email, password);
+            console.log('User created in authentication:', userCredential.user.uid);
+        } catch (authError) {
+            console.error('Firebase auth error during signup:', authError);
+            throw authError;
+        }
         
-        // Determine user type based on signup source
-        const userType = isAgentSignup ? 'agent' : 'customer';
+        // Save user data to Firestore
+        try {
+            await db.collection('users').doc(userCredential.user.uid).set({
+                name: name,
+                email: email,
+                userType: 'customer',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            console.log('User data saved to Firestore');
+        } catch (firestoreError) {
+            console.error('Firestore error during signup:', firestoreError);
+            // Try to delete the auth user since Firestore failed
+            try {
+                await userCredential.user.delete();
+                console.log('Rolled back auth user creation');
+            } catch (deleteError) {
+                console.error('Failed to roll back auth user:', deleteError);
+            }
+            throw firestoreError;
+        }
         
-        // Add user data to Firestore
-        await db.collection('users').doc(userCredential.user.uid).set({
-            name: name,
-            email: email,
-            userType: userType,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        console.log('User data added to Firestore');
+        console.log('User created successfully');
         
-        // Signup successful, hide form
+        // Signup successful
         hideSignupForm();
         
         // Show success notification
-        showNotification('Account created successfully! Redirecting to dashboard...', 'success');
+        showNotification('Account created successfully! You can now log in.', 'success');
         
-        // Redirect to appropriate dashboard based on user type
+        // Show login form after a short delay
         setTimeout(() => {
-            if (userType === 'agent') {
-                window.location.href = 'agent-dashboard.html';
-            } else {
-                window.location.href = 'dashboard.html';
-            }
+            showLoginForm('customer');
         }, 1500);
     } catch (error) {
         console.error('Signup error details:', error);
         
-        // Handle specific errors
+        // Handle errors
         let errorMessage = 'Failed to create account. Please try again.';
         
         switch (error.code) {
             case 'auth/email-already-in-use':
-                errorMessage = 'This email is already in use. Please try another email or login.';
+                errorMessage = 'Email is already in use. Please use a different email or login.';
                 break;
             case 'auth/invalid-email':
                 errorMessage = 'Invalid email address.';
                 break;
             case 'auth/weak-password':
-                errorMessage = 'Password is too weak. Please choose a stronger password.';
+                errorMessage = 'Password is too weak. Please use a stronger password.';
                 break;
             case 'auth/network-request-failed':
                 errorMessage = 'Network error. Please check your internet connection.';
+                break;
+            case 'auth/operation-not-allowed':
+                errorMessage = 'Email/password accounts are not enabled. Please contact support.';
                 break;
             default:
                 console.error('Signup error:', error);
                 errorMessage = `An unexpected error occurred: ${error.message || error}. Please try again.`;
         }
         
-        showError(errorMessage);
+        showError('signupErrorMessage', errorMessage);
     } finally {
         // Reset button state
         signupButton.textContent = 'Create Account';
@@ -795,7 +672,7 @@ function handleResetPassword() {
     const email = document.getElementById('resetEmail').value;
     
     if (!email) {
-        showError('Please enter your email address.');
+        showError('resetErrorMessage', 'Please enter your email address.');
         return;
     }
     
@@ -820,7 +697,7 @@ function handleResetPassword() {
                 errorMessage = 'Invalid email address.';
             }
             
-            showError(errorMessage);
+            showError('resetErrorMessage', errorMessage);
         })
         .finally(() => {
             // Reset button state
@@ -828,43 +705,6 @@ function handleResetPassword() {
             resetButton.disabled = false;
         });
 }
-
-// Tab navigation functionality
-document.addEventListener('DOMContentLoaded', function() {
-    const tabLinks = document.querySelectorAll('.nav-links a[data-tab]');
-    const tabPanes = document.querySelectorAll('.tab-pane');
-    
-    console.log('Tab links found:', tabLinks.length);
-    console.log('Tab panes found:', tabPanes.length);
-    
-    // Show home tab by default
-    document.querySelector('.tab-pane[data-tab="home"]')?.classList.add('active');
-    document.querySelector('.nav-links a[data-tab="home"]')?.classList.add('active');
-    
-    tabLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            const targetTab = this.getAttribute('data-tab');
-            console.log('Tab clicked:', targetTab);
-            
-            // Remove active class from all tabs and panes
-            tabLinks.forEach(link => link.classList.remove('active'));
-            tabPanes.forEach(pane => pane.classList.remove('active'));
-            
-            // Add active class to current tab and pane
-            this.classList.add('active');
-            
-            const targetPane = document.querySelector(`.tab-pane[data-tab="${targetTab}"]`);
-            if (targetPane) {
-                targetPane.classList.add('active');
-                console.log('Tab activated:', targetTab);
-            } else {
-                console.error('Tab pane not found for:', targetTab);
-            }
-        });
-    });
-});
 
 // Initialize the application
 window.addEventListener('DOMContentLoaded', () => {
@@ -882,21 +722,6 @@ window.addEventListener('DOMContentLoaded', () => {
             generateRoadLines();
         }, 100);
         
-        // Initialize button event listeners
-        const bookNowBtn = document.querySelector('.book-now');
-        if (bookNowBtn) {
-            bookNowBtn.addEventListener('click', function() {
-                showLoginForm('customer');
-            });
-        }
-
-        const loginBtn = document.querySelector('.login-btn');
-        if (loginBtn) {
-            loginBtn.addEventListener('click', function() {
-                showLoginForm('agent');
-            });
-        }
-
         // Don't run these if the elements don't exist
         const carImage = document.querySelector('.car-image');
         if (carImage) {
@@ -905,118 +730,103 @@ window.addEventListener('DOMContentLoaded', () => {
         
         // Add parallax effect
         addParallaxEffect();
+        
+        // Check if we're on a dashboard page
+        const isDashboard = window.location.pathname.includes('dashboard');
+        
+        // Only check auth state on non-dashboard pages
+        if (!isDashboard) {
+            // Check if user is already logged in
+            const storedUser = getStoredUserData();
+            if (storedUser) {
+                // User is already logged in, redirect to appropriate dashboard
+                if (storedUser.userType === 'customer') {
+                    window.location.href = 'dashboard.html';
+                } else if (storedUser.userType === 'agent') {
+                    window.location.href = 'agent-dashboard.html';
+                } else if (storedUser.userType === 'admin') {
+                    window.location.href = 'admin-dashboard.html';
+                }
+            }
+        }
+        
+        // Add event listeners to buttons
+        const loginButton = document.getElementById('loginButton');
+        if (loginButton) {
+            loginButton.onclick = function(e) {
+                e.preventDefault();
+                console.log('Login button clicked directly');
+                handleLogin();
+            };
+        }
+        
+        const signupButton = document.getElementById('signupButton');
+        if (signupButton) {
+            signupButton.onclick = function(e) {
+                e.preventDefault();
+                console.log('Signup button clicked directly');
+                handleSignup();
+            };
+        }
+        
+        const resetPasswordButton = document.getElementById('resetPasswordButton');
+        if (resetPasswordButton) {
+            resetPasswordButton.onclick = function(e) {
+                e.preventDefault(); 
+                console.log('Reset password button clicked directly');
+                handleResetPassword();
+            };
+        }
     } catch (error) {
         console.error('Error initializing UI components:', error);
     }
-
-    // Tab Navigation
-    const navLinks = document.querySelectorAll('.nav-links a');
-    const tabPanes = document.querySelectorAll('.tab-pane');
-
-    navLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            
-            // Remove active class from all links and tabs
-            navLinks.forEach(l => l.classList.remove('active'));
-            tabPanes.forEach(p => p.classList.remove('active'));
-            
-            // Add active class to clicked link and corresponding tab
-            this.classList.add('active');
-            const tabId = this.getAttribute('data-tab');
-            const targetTab = document.getElementById(tabId);
-            if (targetTab) {
-                targetTab.classList.add('active');
-            }
-        });
-    });
-});
-
-function loginUser(formData, userType) {
-    const emailInput = formData.get('email');
-    const passwordInput = formData.get('password');
     
-    console.log('Login attempt:', emailInput, passwordInput ? '******' : 'empty');
-    
-    if (!emailInput || !passwordInput) {
-        showError('Please enter both email and password');
-        return;
-    }
-    
-    // Reset any previous errors
-    document.querySelector('.error-message').classList.remove('active');
-    
-    // Add loading state
-    const submitBtn = document.querySelector(`#${userType}-login-form .submit-btn`);
-    const originalText = submitBtn.textContent;
-    submitBtn.textContent = 'Logging in...';
-    submitBtn.disabled = true;
-    
-    // Authentication with Firebase
-    firebase.auth().signInWithEmailAndPassword(emailInput, passwordInput)
-        .then((userCredential) => {
-            // Successful login
-            const user = userCredential.user;
-            showNotification(`Welcome back, ${user.email.split('@')[0]}!`, 'success');
-            
-            // Redirect based on user type
-            setTimeout(() => {
-                if (userType === 'agent') {
-                    window.location.href = 'agent-dashboard.html';
-                } else {
-                    window.location.href = 'dashboard.html';
-                }
-            }, 1000);
-        })
-        .catch((error) => {
-            console.error('Login error:', error.code, error.message);
-            let errorMessage = 'Invalid email or password';
-            if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-                errorMessage = 'Invalid email or password';
-            } else if (error.code === 'auth/too-many-requests') {
-                errorMessage = 'Too many failed attempts. Please try again later.';
-            } else {
-                errorMessage = 'An error occurred. Please try again.';
-            }
-            showError(errorMessage);
-            
-            // Reset button
-            submitBtn.textContent = originalText;
-            submitBtn.disabled = false;
-        });
-}
-
-// Event listeners for login form submission
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Setting up form submission handlers');
-    
-    // Listen for form submission event in the login modal
-    document.addEventListener('submit', function(e) {
-        const form = e.target;
+    // Periodically regenerate shooting stars for continuous effect
+    setInterval(() => {
+        const shootingStars = document.querySelectorAll('.shooting-star');
+        shootingStars.forEach(star => star.remove());
         
-        // Check if this is a login form
-        if (form.id === 'customer-login-form' || form.id === 'agent-login-form') {
-            e.preventDefault();
-            console.log('Login form submitted:', form.id);
+        const background = document.getElementById('background');
+        if (background) {
+            const numShootingStars = 5;
             
-            const formData = new FormData(form);
-            const userType = form.id === 'agent-login-form' ? 'agent' : 'customer';
-            loginUser(formData, userType);
+            for (let i = 0; i < numShootingStars; i++) {
+                const shootingStar = document.createElement('div');
+                shootingStar.className = 'shooting-star';
+                shootingStar.style.left = `${Math.random() * 70}%`;
+                shootingStar.style.top = `${Math.random() * 40}%`;
+                shootingStar.style.animationDelay = `${i * 1.5}s`;
+                background.appendChild(shootingStar);
+            }
+        }
+    }, 15000);
+    
+    // Resize event to adjust elements
+    window.addEventListener('resize', () => {
+        generateCityscape();
+        generateRoadLines();
+        generateStars();
+    });
+
+    // Add active class to current nav link
+    const currentLocation = window.location.pathname;
+    const navLinks = document.querySelectorAll('.nav-links a');
+    navLinks.forEach(link => {
+        if (link.getAttribute('href') === currentLocation) {
+            link.classList.add('active');
         }
     });
     
-    // Setup buttons to show forms
-    const bookNowBtn = document.querySelector('.book-now');
-    if (bookNowBtn) {
-        bookNowBtn.addEventListener('click', function() {
-            showLoginForm('customer');
+    // Add animation to form inputs
+    const inputs = document.querySelectorAll('input');
+    inputs.forEach(input => {
+        input.addEventListener('focus', () => {
+            input.parentElement.classList.add('focused');
         });
-    }
-
-    const loginBtn = document.querySelector('.login-btn');
-    if (loginBtn) {
-        loginBtn.addEventListener('click', function() {
-            showLoginForm('agent');
+        input.addEventListener('blur', () => {
+            if (!input.value) {
+                input.parentElement.classList.remove('focused');
+            }
         });
-    }
+    });
 }); 

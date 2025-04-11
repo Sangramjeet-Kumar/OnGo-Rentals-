@@ -1,60 +1,3 @@
-// Add initialization code at the beginning
-document.addEventListener('DOMContentLoaded', async function() {
-    // Wait for Firebase Auth to initialize
-    let authInitialized = false;
-    
-    // Set up auth state listener first
-    const unsubscribe = auth.onAuthStateChanged(async (user) => {
-        if (authInitialized) return; // Only run once
-        authInitialized = true;
-        
-        console.log('Auth state initialized on dashboard');
-        
-        if (!user) {
-            console.log('No user detected, redirecting to login page');
-            const currentTime = Date.now();
-            sessionStorage.setItem('lastRedirectTime', currentTime.toString());
-            window.location.replace('index.html');
-            return;
-        }
-        
-        // Continue with dashboard initialization
-        try {
-            // Check user role and proceed with initialization
-            const userData = await checkUserRole();
-            
-            if (userData) {
-                // Initialize dashboard components
-                initializeDateDisplay();
-                handleNavigation();
-                loadUserData();
-                handleProfileUpdate();
-                handlePasswordToggles();
-                handlePasswordStrength();
-                handlePasswordChange();
-                handleStarRating();
-                handleReviewSubmission();
-                loadUserReviews();
-                loadRentalOptions();
-                
-                // Setup rental history functionality
-                const { loadRentalHistory } = handleRentalHistory();
-                loadRentalHistory();
-                
-                // Set up logout handler
-                document.getElementById('logoutBtn').addEventListener('click', handleLogout);
-                
-                console.log('Dashboard initialization complete');
-            }
-        } catch (error) {
-            console.error('Dashboard initialization error:', error);
-        }
-        
-        // Clean up listener since we only need it once
-        unsubscribe();
-    });
-});
-
 // Initialize date display
 function initializeDateDisplay() {
     const dateElement = document.getElementById('currentDate');
@@ -63,25 +6,517 @@ function initializeDateDisplay() {
     dateElement.textContent = today.toLocaleDateString('en-US', options);
 }
 
+// Add CSS style for vehicle-type-display
+const styleElement = document.createElement('style');
+styleElement.textContent = `
+    .vehicle-type-display {
+        height: 160px;
+        background-color: #f0f4ff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+    
+    .vehicle-type-display .type-icon {
+        font-size: 48px;
+        color: #3a86ff;
+        margin-bottom: 10px;
+    }
+    
+    .vehicle-type-display .type-label {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .rental-type-display {
+        width: 70px;
+        height: 70px;
+        background-color: #f0f4ff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+    }
+    
+    .rental-type-display .type-icon {
+        font-size: 32px;
+        color: #3a86ff;
+    }
+    
+    /* Booking History Table Styles */
+    .rental-history-table {
+        width: 100%;
+        padding: 20px;
+        background-color: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .rental-history-table h3 {
+        font-size: 20px;
+        margin-bottom: 20px;
+        color: #333;
+    }
+    
+    .bookings-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 15px;
+        text-align: left;
+    }
+    
+    .bookings-table th {
+        padding: 12px 15px;
+        background-color: #f8f9fa;
+        border-bottom: 2px solid #e9ecef;
+        font-weight: 600;
+        color: #495057;
+    }
+    
+    .bookings-table td {
+        padding: 12px 15px;
+        border-bottom: 1px solid #e9ecef;
+        color: #495057;
+    }
+    
+    .bookings-table tr:hover {
+        background-color: #f8f9fa;
+    }
+    
+    .vehicle-info {
+        display: flex;
+        align-items: center;
+    }
+    
+    .vehicle-name {
+        font-weight: 500;
+    }
+    
+    .status-badge {
+        padding: 5px 10px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 500;
+        display: inline-block;
+    }
+    
+    .status-badge.status-confirmed {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .status-badge.status-active {
+        background-color: #e8f5e9;
+        color: #388e3c;
+    }
+    
+    .status-badge.status-completed {
+        background-color: #e0f2f1;
+        color: #00897b;
+    }
+    
+    .status-badge.status-cancelled {
+        background-color: #ffebee;
+        color: #d32f2f;
+    }
+    
+    .status-badge.status-pending {
+        background-color: #fff8e1;
+        color: #ffa000;
+    }
+    
+    .actions-cell {
+        white-space: nowrap;
+    }
+    
+    .actions-cell button {
+        padding: 5px 10px;
+        margin-right: 5px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+        transition: background-color 0.3s;
+    }
+    
+    .actions-cell .cancel-btn {
+        background-color: #ffebee;
+        color: #d32f2f;
+    }
+    
+    .actions-cell .cancel-btn:hover {
+        background-color: #ffcdd2;
+    }
+    
+    .actions-cell .review-btn {
+        background-color: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .actions-cell .review-btn:hover {
+        background-color: #bbdefb;
+    }
+    
+    .actions-cell .details-btn {
+        background-color: #f5f5f5;
+        color: #616161;
+    }
+    
+    .actions-cell .details-btn:hover {
+        background-color: #e0e0e0;
+    }
+    
+    /* Booking Details Modal Styles */
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s, visibility 0.3s;
+    }
+    
+    .modal.show {
+        opacity: 1;
+        visibility: visible;
+    }
+    
+    .modal-content {
+        width: 90%;
+        max-width: 600px;
+        background-color: #fff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        transform: scale(0.9);
+        transition: transform 0.3s;
+    }
+    
+    .modal.show .modal-content {
+        transform: scale(1);
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 20px;
+        background-color: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .modal-header h2 {
+        margin: 0;
+        font-size: 20px;
+        color: #333;
+    }
+    
+    .close-modal {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #6c757d;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .booking-id {
+        font-size: 14px;
+        color: #6c757d;
+        margin-bottom: 20px;
+    }
+    
+    .booking-details-container {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .booking-vehicle-details {
+        text-align: center;
+        padding-bottom: 20px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    
+    .vehicle-icon-large {
+        width: 80px;
+        height: 80px;
+        background-color: #f0f4ff;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 15px;
+    }
+    
+    .vehicle-icon-large i {
+        font-size: 40px;
+        color: #3a86ff;
+    }
+    
+    .booking-vehicle-details h3 {
+        margin: 0 0 5px;
+        font-size: 18px;
+        color: #333;
+    }
+    
+    .booking-vehicle-details .vehicle-type {
+        margin: 0;
+        color: #6c757d;
+    }
+    
+    .booking-info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 20px;
+    }
+    
+    .info-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 15px;
+    }
+    
+    .info-item i {
+        color: #3a86ff;
+        font-size: 18px;
+        margin-top: 3px;
+    }
+    
+    .info-item div {
+        flex: 1;
+    }
+    
+    .info-item strong {
+        display: block;
+        font-size: 14px;
+        margin-bottom: 5px;
+        color: #495057;
+    }
+    
+    .info-item p {
+        margin: 0;
+        color: #212529;
+    }
+    
+    .price-breakdown {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 10px;
+    }
+    
+    .price-breakdown h4 {
+        margin: 0 0 10px;
+        font-size: 16px;
+        color: #333;
+    }
+    
+    .price-item {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        font-size: 14px;
+        color: #495057;
+    }
+    
+    .price-item.total {
+        border-top: 1px solid #e9ecef;
+        margin-top: 8px;
+        padding-top: 8px;
+        font-weight: 600;
+        color: #212529;
+    }
+    
+    .booking-status-large {
+        text-align: center;
+        margin-top: 10px;
+    }
+    
+    .booking-status-large .status-badge {
+        font-size: 14px;
+        padding: 8px 15px;
+    }
+    
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 15px 20px;
+        background-color: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+    }
+    
+    .modal-footer button {
+        padding: 8px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+    }
+    
+    .cancel-booking-btn {
+        background-color: #ffebee;
+        color: #d32f2f;
+    }
+    
+    .cancel-booking-btn:hover {
+        background-color: #ffcdd2;
+    }
+    
+    .close-modal-btn {
+        background-color: #e9ecef;
+        color: #495057;
+    }
+    
+    .close-modal-btn:hover {
+        background-color: #dee2e6;
+    }
+    
+    /* Loading spinner */
+    .loading-spinner {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px;
+        color: #6c757d;
+    }
+    
+    .loading-spinner i {
+        font-size: 30px;
+        margin-bottom: 15px;
+        color: #3a86ff;
+    }
+    
+    /* Review Modal Styles */
+    .review-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    .rating-selector {
+        text-align: center;
+    }
+    
+    .rating-selector p {
+        margin-bottom: 10px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .stars-container {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+    }
+    
+    .stars-container i {
+        font-size: 30px;
+        color: #ffc107;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .stars-container i:hover {
+        transform: scale(1.2);
+    }
+    
+    .form-group {
+        margin-top: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .form-group textarea {
+        width: 100%;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .submit-review-btn {
+        background-color: #4caf50;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: background-color 0.3s;
+    }
+    
+    .submit-review-btn:hover {
+        background-color: #388e3c;
+    }
+    
+    .submit-review-btn:disabled {
+        background-color: #cccccc;
+        cursor: not-allowed;
+    }
+    
+    /* Loading spinner */
+`;
+document.head.appendChild(styleElement);
+
 // Show notification
 function showNotification(message, type = 'success') {
-    const notification = document.getElementById('notification');
-    const messageElement = document.getElementById('notificationMessage');
-    const iconElement = notification.querySelector('.notification-icon i');
+    // Check if notification element exists, create if it doesn't
+    let notification = document.getElementById('notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'notification';
+        notification.className = 'notification';
+        
+        const notificationContent = document.createElement('div');
+        notificationContent.className = 'notification-content';
+        
+        const notificationMessage = document.createElement('p');
+        notificationMessage.id = 'notificationMessage';
+        
+        const closeButton = document.createElement('button');
+        closeButton.className = 'notification-close';
+        closeButton.innerHTML = '<i class="fas fa-times"></i>';
+        closeButton.addEventListener('click', hideNotification);
+        
+        notificationContent.appendChild(notificationMessage);
+        notification.appendChild(notificationContent);
+        notification.appendChild(closeButton);
+        
+        document.body.appendChild(notification);
+    }
     
-    // Set message and icon based on type
+    const messageElement = document.getElementById('notificationMessage');
     messageElement.textContent = message;
     
-    if (type === 'success') {
-        iconElement.className = 'fas fa-check-circle';
-        notification.className = 'notification success visible';
-    } else if (type === 'error') {
-        iconElement.className = 'fas fa-exclamation-circle';
-        notification.className = 'notification error visible';
-    } else if (type === 'info') {
-        iconElement.className = 'fas fa-info-circle';
-        notification.className = 'notification info visible';
-    }
+    // Set type class
+    notification.className = 'notification';
+    notification.classList.add(type);
+    notification.classList.add('visible');
     
     // Auto-hide after 5 seconds
     setTimeout(hideNotification, 5000);
@@ -90,154 +525,167 @@ function showNotification(message, type = 'success') {
 // Hide notification
 function hideNotification() {
     const notification = document.getElementById('notification');
+    if (notification) {
     notification.classList.remove('visible');
+    }
 }
 
 // Handle navigation
 function handleNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
-    const sections = document.querySelectorAll('.content-section');
+    const contentSections = document.querySelectorAll('.content-section');
     
     navItems.forEach(item => {
-        item.addEventListener('click', (e) => {
-            e.preventDefault();
+        item.addEventListener('click', () => {
+            // Get the section to show
+            const sectionToShow = item.getAttribute('data-section');
             
-            // Remove active class from all items and sections
+            // Remove active class from all navigation items
             navItems.forEach(navItem => navItem.classList.remove('active'));
-            sections.forEach(section => section.classList.remove('active'));
             
             // Add active class to clicked item
             item.classList.add('active');
             
-            // Show corresponding section
-            const sectionId = item.getAttribute('data-section');
-            document.getElementById(sectionId).classList.add('active');
+            // Hide all content sections
+            contentSections.forEach(section => section.classList.remove('active'));
+            
+            // Show the selected section
+            const selectedSection = document.getElementById(sectionToShow);
+            if (selectedSection) {
+                selectedSection.classList.add('active');
+                
+                // Special handling for history section
+                if (sectionToShow === 'history') {
+                    const user = firebase.auth().currentUser;
+                    if (user) {
+                        console.log('Loading booking history on navigation to history tab');
+                        loadBookingHistory(user.uid);
+                    }
+                }
+                
+                // Special handling for book section
+                if (sectionToShow === 'book') {
+                    console.log('Loading available vehicles on navigation to book tab');
+                    loadAvailableVehicles();
+                }
+            }
         });
     });
+    
+    // Handle URL hash for direct navigation
+    const handleHashChange = () => {
+        const hash = window.location.hash.substring(1);
+        if (hash) {
+            const targetNavItem = document.querySelector(`.nav-item[data-section="${hash}"]`);
+            if (targetNavItem) {
+                targetNavItem.click();
+            }
+        }
+    };
+    
+    // Initial hash check
+    handleHashChange();
+    
+    // Listen for hash changes
+    window.addEventListener('hashchange', handleHashChange);
 }
 
-// Load user data from Firebase
-function loadUserData() {
-    console.log("Loading user data...");
+// Load user data
+async function loadUserData() {
+    try {
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            console.error('No user found when trying to load user data');
+            return;
+        }
+        
+        console.log('Loading user data for:', user.uid);
+        
+        // Update user name in the UI
+        const userNameElement = document.getElementById('userName');
+        if (userNameElement) {
+            userNameElement.textContent = user.displayName || user.email.split('@')[0];
+        }
     
-    // Check if user is logged in
-    const user = auth.currentUser;
-    
-    if (!user) {
-        console.log("No user is currently signed in");
-        // Don't redirect immediately, let the auth listener handle it
-        return;
-    }
-    
-    // Get user data from Firestore
-    db.collection("users").doc(user.uid).get()
-        .then((doc) => {
-            if (doc.exists) {
-                const userData = doc.data();
+        // Fetch user data from Firestore
+        const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+        
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+                console.log('User data loaded:', userData);
                 
-                // Check if user type is correct for this dashboard
-                if (userData.userType === 'agent') {
-                    console.log('Agent detected on customer dashboard, checking recent redirects');
-                    
-                    // Only redirect if we haven't redirected recently
-                    const lastRedirectTime = parseInt(sessionStorage.getItem('lastRedirectTime') || '0');
-                    const currentTime = Date.now();
-                    
-                    if (currentTime - lastRedirectTime > 3000) {
-                        console.log('Redirecting agent to agent dashboard');
-                        sessionStorage.setItem('lastRedirectTime', currentTime.toString());
-                        window.location.replace('agent-dashboard.html');
-                    } else {
-                        console.log('Skipping redirect due to recent redirect');
-                    }
-                    return;
-                }
-                
-                // Update UI with user data
-                const userNameElements = document.querySelectorAll('#userName, #profileName');
-                userNameElements.forEach(element => {
-                    if (element) {
-                        element.textContent = userData.name || user.displayName || user.email;
-                    }
-                });
-                
-                // Update profile email
-                const profileEmailElement = document.getElementById('profileEmail');
-                if (profileEmailElement) {
-                    profileEmailElement.textContent = userData.email || user.email;
-                }
-                
-                // Set profile picture if available
-                const userAvatarElement = document.getElementById('userAvatar');
-                if (userAvatarElement && (userData.photoURL || user.photoURL)) {
-                    userAvatarElement.src = userData.photoURL || user.photoURL;
-                }
-                
-                // Initialize booking UI
-                initBookingUI();
-                
-                // Set minimum date for booking form
-                const today = new Date().toISOString().split('T')[0];
-                const pickupDateInput = document.getElementById('pickupDate');
-                const returnDateInput = document.getElementById('returnDate');
-                
-                if (pickupDateInput && returnDateInput) {
-                    pickupDateInput.min = today;
-                    returnDateInput.min = today;
-                    
-                    // Handle pickup date change to update return date minimum
-                    pickupDateInput.addEventListener('change', function() {
-                        returnDateInput.min = this.value;
-                    });
-                }
-                
-                console.log("User data loaded successfully");
-            } else {
-                console.log("No user data found in database");
-                showNotification("Creating your profile...", "info");
-                
-                // Create new user document
-                db.collection("users").doc(user.uid).set({
-                    name: user.displayName || "",
-                    email: user.email,
-                    userType: 'customer',
-                    createdAt: new Date(),
-                    photoURL: user.photoURL || ""
-                })
-                .then(() => {
-                    console.log("User profile created");
-                    showNotification("Profile created successfully", "success");
-                    
-                    // Update UI with user data
-                    const userNameElements = document.querySelectorAll('#userName, #profileName');
-                    userNameElements.forEach(element => {
-                        if (element) {
-                            element.textContent = user.displayName || user.email;
-                        }
-                    });
-                    
-                    // Update profile email
-                    const profileEmailElement = document.getElementById('profileEmail');
-                    if (profileEmailElement) {
-                        profileEmailElement.textContent = user.email;
-                    }
-                    
-                    // Initialize booking UI
-                    initBookingUI();
-                })
-                .catch((error) => {
-                    console.error("Error creating user profile: ", error);
-                    showNotification("Error creating your profile", "error");
-                });
+            // Update user name with data from Firestore if available
+            if (userData.name && userNameElement) {
+                userNameElement.textContent = userData.name;
             }
-        })
-        .catch((error) => {
-            console.error("Error getting user data: ", error);
-            showNotification("Error loading user data", "error");
             
-            // Still initialize booking UI even if user data loading fails
-            initBookingUI();
-        });
+            // Update profile fields if they exist
+            updateProfileFields(userData);
+            
+            // Update user metrics if they exist
+            updateUserMetrics(userData);
+        } else {
+            console.warn('User document does not exist in Firestore');
+            showNotification('User profile could not be loaded completely', 'warning');
+        }
+    } catch (error) {
+        console.error('Error loading user data:', error);
+        showNotification('Failed to load user profile data', 'error');
+    }
+}
+
+// Update profile fields with user data
+function updateProfileFields(userData) {
+    // Only update if we're on the profile section
+    const fullNameInput = document.getElementById('fullName');
+    if (!fullNameInput) return;
+    
+    // Set values for all profile fields
+    if (userData.name) fullNameInput.value = userData.name;
+    
+    const phoneNumberInput = document.getElementById('phoneNumber');
+    if (phoneNumberInput && userData.phoneNumber) phoneNumberInput.value = userData.phoneNumber;
+    
+    const dateOfBirthInput = document.getElementById('dateOfBirth');
+    if (dateOfBirthInput && userData.dateOfBirth) dateOfBirthInput.value = userData.dateOfBirth;
+    
+    const addressInput = document.getElementById('address');
+    if (addressInput && userData.address) addressInput.value = userData.address;
+    
+    const cityInput = document.getElementById('city');
+    if (cityInput && userData.city) cityInput.value = userData.city;
+    
+    const stateInput = document.getElementById('state');
+    if (stateInput && userData.state) stateInput.value = userData.state;
+    
+    const postalCodeInput = document.getElementById('postalCode').value = userData.postalCode;
+}
+
+// Update user metrics in the dashboard
+function updateUserMetrics(userData) {
+    // Active rentals
+    const activeRentalsElement = document.getElementById('activeRentals');
+    if (activeRentalsElement && userData.activeRentals !== undefined) {
+        activeRentalsElement.textContent = userData.activeRentals || '0';
+                }
+                
+    // Total trips
+    const totalTripsElement = document.getElementById('totalTrips');
+    if (totalTripsElement && userData.totalTrips !== undefined) {
+        totalTripsElement.textContent = userData.totalTrips || '0';
+                }
+                
+    // Loyalty points
+    const loyaltyPointsElement = document.getElementById('loyaltyPoints');
+    if (loyaltyPointsElement && userData.loyaltyPoints !== undefined) {
+        loyaltyPointsElement.textContent = userData.loyaltyPoints || '0';
+                }
+                
+    // User rating
+    const userRatingElement = document.getElementById('userRating');
+    if (userRatingElement && userData.rating !== undefined) {
+        userRatingElement.textContent = userData.rating || '5.0';
+    }
 }
 
 // Handle profile update
@@ -320,23 +768,13 @@ function handleLogout() {
     const logoutBtn = document.getElementById('logoutBtn');
     
     logoutBtn.addEventListener('click', () => {
-        // Show loading indicator on logout button
-        logoutBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Logging out...</span>';
-        logoutBtn.disabled = true;
-        
-        // Set redirect timestamp to prevent loops
-        const currentTime = Date.now();
-        sessionStorage.setItem('lastRedirectTime', currentTime.toString());
-        sessionStorage.setItem('redirectReason', 'logout');
-        
         signOutUser()
             .then(() => {
-                window.location.replace('index.html');
+                console.log('User signed out');
+                window.location.href = 'index.html';
             })
             .catch((error) => {
                 console.error("Error signing out:", error);
-                logoutBtn.innerHTML = '<i class="fas fa-sign-out-alt"></i> <span>Logout</span>';
-                logoutBtn.disabled = false;
                 showNotification("Failed to log out. Please try again.", "error");
             });
     });
@@ -1021,434 +1459,2278 @@ function handleRentalHistory() {
     return { loadRentalHistory }; // Return method for external access
 }
 
-// Book Now UI functionality
-function initBookingUI() {
-    // Set today's date for the date pickers
+// Handle vehicle booking process
+function handleVehicleBooking() {
+    const bookBtns = document.querySelectorAll('.book-now-btn');
+    const vehicleContainer = document.querySelector('.vehicle-showcase');
+    const summaryContainer = document.getElementById('bookingSummary');
+    const backToSelectionBtn = document.getElementById('backToVehicleSelection');
+    const confirmBookingBtn = document.getElementById('confirmBookingBtn');
+    
+    // Set minimum dates for booking dates
     const today = new Date().toISOString().split('T')[0];
-    const pickupDateInput = document.getElementById('pickupDate');
-    const returnDateInput = document.getElementById('returnDate');
+    document.getElementById('summaryPickupDate').min = today;
+    document.getElementById('summaryReturnDate').min = today;
     
-    if (pickupDateInput && returnDateInput) {
-        pickupDateInput.min = today;
-        pickupDateInput.value = today;
-        
-        // Set min return date to pickup date
-        returnDateInput.min = today;
-        
-        // Set default return date to next day
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        returnDateInput.value = tomorrow.toISOString().split('T')[0];
-        
-        // Update return date min when pickup date changes
-        pickupDateInput.addEventListener('change', function() {
-            returnDateInput.min = this.value;
-            
-            // If return date is before new pickup date, update it
-            if (returnDateInput.value < this.value) {
-                returnDateInput.value = this.value;
-            }
-        });
-    }
-    
-    // Price range slider functionality
-    const priceMinInput = document.getElementById('priceMin');
-    const priceMaxInput = document.getElementById('priceMax');
-    const priceValues = document.querySelectorAll('.price-value');
-    const sliderTrack = document.querySelector('.slider-track');
-    
-    if (priceMinInput && priceMaxInput) {
-        // Update slider track based on range inputs
-        function updateSliderTrack() {
-            const min = parseInt(priceMinInput.value);
-            const max = parseInt(priceMaxInput.value);
-            const minPercent = ((min - 200) / (2000 - 200)) * 100;
-            const maxPercent = ((max - 200) / (2000 - 200)) * 100;
-            
-            if (sliderTrack) {
-                sliderTrack.style.background = `linear-gradient(to right, #e0e0e0 ${minPercent}%, var(--primary) ${minPercent}%, var(--primary) ${maxPercent}%, #e0e0e0 ${maxPercent}%)`;
-            }
-            
-            // Update displayed values with rupee format
-            if (priceValues.length >= 2) {
-                priceValues[0].textContent = `₹${min.toLocaleString('en-IN')}`;
-                priceValues[1].textContent = `₹${max.toLocaleString('en-IN')}`;
-            }
-            
-            // Update the car display based on price filter
-            filterCars();
-        }
-        
-        // Initialize track and prevent min > max and max < min
-        updateSliderTrack();
-        
-        priceMinInput.addEventListener('input', () => {
-            const min = parseInt(priceMinInput.value);
-            const max = parseInt(priceMaxInput.value);
-            
-            if (min > max) {
-                priceMinInput.value = max;
-            }
-            
-            updateSliderTrack();
-        });
-        
-        priceMaxInput.addEventListener('input', () => {
-            const min = parseInt(priceMinInput.value);
-            const max = parseInt(priceMaxInput.value);
-            
-            if (max < min) {
-                priceMaxInput.value = min;
-            }
-            
-            updateSliderTrack();
-        });
-    }
-    
-    // Vehicle type toggle
-    const vehicleButtons = document.querySelectorAll('.vehicle-btn');
-    const carCategorySection = document.querySelector('.car-category');
-    
-    vehicleButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Remove active class from all buttons
-            vehicleButtons.forEach(b => b.classList.remove('active'));
-            
-            // Add active class to clicked button
-            this.classList.add('active');
-            
-            // Show/hide car category section based on vehicle type
-            const vehicleType = this.getAttribute('data-type');
-            if (vehicleType === 'car') {
-                carCategorySection.style.display = 'block';
-            } else {
-                carCategorySection.style.display = 'none';
-            }
-            
-            // Filter vehicles based on type
-            filterCars();
-        });
-    });
-    
-    // Car brand and model relationship
-    const carBrandSelect = document.getElementById('carBrand');
-    const carModelSelect = document.getElementById('carModel');
-    
-    // Define models for each brand
-    const carModels = {
-        'Maruti Suzuki': ['Swift', 'Baleno', 'Dzire', 'Brezza', 'Fronx', 'Ertiga', 'XL6', 'Ciaz', 'Wagon R'],
-        'Tata Motors': ['Nexon', 'Punch', 'Tiago', 'Altroz', 'Harrier', 'Safari', 'Tigor', 'Curvv'],
-        'Mahindra': ['Scorpio-N', 'XUV700', 'Thar', 'XUV300', 'Bolero', 'Bolero Neo', 'XUV400 EV'],
-        'Hyundai': ['Creta', 'Venue', 'i20', 'i10', 'Verna', 'Alcazar', 'Tucson', 'Aura'],
-        'Honda': ['City', 'Amaze', 'Elevate', 'WR-V', 'Jazz'],
-        'Toyota': ['Innova Crysta', 'Fortuner', 'Urban Cruiser', 'Glanza', 'Camry', 'Vellfire'],
-        'Kia': ['Seltos', 'Sonet', 'Carens', 'EV6', 'Carnival']
+    // Store the currently selected vehicle
+    let selectedVehicle = {
+        id: '',
+        name: '',
+        price: 0,
+        seats: 0,
+        luggage: 0,
+        mpg: 0
     };
     
-    // Update models when brand changes
-    if (carBrandSelect && carModelSelect) {
-        carBrandSelect.addEventListener('change', function() {
-            const selectedBrand = this.value;
+    // Handle vehicle selection
+    bookBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            // Store vehicle data
+            selectedVehicle = {
+                id: btn.getAttribute('data-vehicle-id'),
+                name: btn.getAttribute('data-vehicle-name'),
+                price: parseFloat(btn.getAttribute('data-price')),
+                seats: parseInt(btn.getAttribute('data-seats')),
+                luggage: parseInt(btn.getAttribute('data-luggage')),
+                mpg: parseInt(btn.getAttribute('data-mpg'))
+            };
             
-            // Clear current models
-            carModelSelect.innerHTML = '<option>Select Model</option>';
+            // Get vehicle image
+            const vehicleCard = btn.closest('.vehicle-card');
+            const vehicleImage = vehicleCard.querySelector('.vehicle-image img').src;
             
-            // Skip if "All Brands" selected
-            if (selectedBrand === 'All Brands') {
-                return;
+            // Update summary data
+            document.getElementById('selectedVehicleImage').src = vehicleImage;
+            document.getElementById('selectedVehicleName').textContent = selectedVehicle.name;
+            document.getElementById('selectedVehicleType').textContent = getVehicleType(selectedVehicle.id);
+            document.getElementById('selectedVehiclePrice').textContent = `$${selectedVehicle.price}`;
+            document.getElementById('selectedVehicleSeats').textContent = selectedVehicle.seats;
+            document.getElementById('selectedVehicleLuggage').textContent = selectedVehicle.luggage;
+            document.getElementById('selectedVehicleMpg').textContent = selectedVehicle.mpg;
+            
+            // Copy pickup/return dates from main form if set
+            const pickupDate = document.getElementById('pickupDate').value;
+            const returnDate = document.getElementById('returnDate').value;
+            const location = document.getElementById('location').value;
+            
+            if (pickupDate) {
+                document.getElementById('summaryPickupDate').value = pickupDate;
             }
             
-            // Add models for selected brand
-            const models = carModels[selectedBrand] || [];
-            models.forEach(model => {
-                const option = document.createElement('option');
-                option.textContent = model;
-                option.value = model;
-                carModelSelect.appendChild(option);
-            });
+            if (returnDate) {
+                document.getElementById('summaryReturnDate').value = returnDate;
+            }
             
-            // Filter cars based on brand
-            filterCars();
+            if (location) {
+                document.getElementById('summaryPickupLocation').value = location;
+            }
+            
+            // Update pricing summary
+            updatePricingSummary();
+            
+            // Show summary, hide vehicle selection
+            vehicleContainer.style.display = 'none';
+            summaryContainer.style.display = 'block';
         });
+    });
+    
+    // Handle back button click
+    backToSelectionBtn.addEventListener('click', () => {
+        vehicleContainer.style.display = 'block';
+        summaryContainer.style.display = 'none';
+    });
+    
+    // Update pricing when dates change
+    document.getElementById('summaryPickupDate').addEventListener('change', updatePricingSummary);
+    document.getElementById('summaryReturnDate').addEventListener('change', updatePricingSummary);
+    
+    // Handle date validation
+    document.getElementById('summaryPickupDate').addEventListener('change', function() {
+        document.getElementById('summaryReturnDate').min = this.value;
         
-        // Filter cars when model changes
-        carModelSelect.addEventListener('change', filterCars);
-    }
+        // If return date is now before pickup date, update it
+        const returnDateInput = document.getElementById('summaryReturnDate');
+        if (returnDateInput.value && returnDateInput.value < this.value) {
+            returnDateInput.value = this.value;
+        }
+        
+        updatePricingSummary();
+    });
     
-    // Handle favorite buttons
-    const favoriteButtons = document.querySelectorAll('.favorite-btn');
-    
-    favoriteButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Toggle active class
-            this.classList.toggle('active');
-            
-            // Toggle heart icon
-            const icon = this.querySelector('i');
-            if (icon) {
-                if (this.classList.contains('active')) {
-                    icon.classList.remove('far');
-                    icon.classList.add('fas');
-                } else {
-                    icon.classList.remove('fas');
-                    icon.classList.add('far');
+    // Handle booking confirmation
+    confirmBookingBtn.addEventListener('click', () => {
+        const pickupDate = document.getElementById('summaryPickupDate').value;
+        const returnDate = document.getElementById('summaryReturnDate').value;
+        const pickupLocation = document.getElementById('summaryPickupLocation').value;
+        const dropoffLocation = document.getElementById('summaryDropoffLocation').value;
+        
+        // Validate inputs
+        if (!pickupDate) {
+            showNotification("Please select a pick-up date.", "error");
+            return;
+        }
+        
+        if (!returnDate) {
+            showNotification("Please select a return date.", "error");
+            return;
+        }
+        
+        if (!pickupLocation) {
+            showNotification("Please select a pick-up location.", "error");
+            return;
+        }
+        
+        // Show loading state
+        confirmBookingBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+        confirmBookingBtn.disabled = true;
+        
+        // Get the total price and days for the booking
+        const { days, total } = calculatePricing();
+        
+        // Handle the booking (example with Firebase)
+        createBooking(selectedVehicle, pickupDate, returnDate, pickupLocation, dropoffLocation, days, total)
+            .then(() => {
+                // Show success notification
+                showNotification("Booking confirmed successfully!", "success");
+                
+                // Optionally redirect to confirmation page
+                // window.location.href = 'confirmation.html'; 
+                
+                // Or redirect to history/bookings page
+                const navItems = document.querySelectorAll('.nav-item');
+                const sections = document.querySelectorAll('.content-section');
+                
+                // Remove active class from all items and sections
+                navItems.forEach(navItem => navItem.classList.remove('active'));
+                sections.forEach(section => section.classList.remove('active'));
+                
+                // Add active class to history nav item
+                document.querySelector('[data-section="history"]').classList.add('active');
+                
+                // Show history section
+                document.getElementById('history').classList.add('active');
+                
+                // Refresh rental history
+                if (typeof rentalHistoryHandler !== 'undefined' && 
+                    typeof rentalHistoryHandler.loadRentalHistory === 'function') {
+                    rentalHistoryHandler.loadRentalHistory();
                 }
-            }
-            
-            // Here you could add code to save favorites to user profile
-            const carCard = this.closest('.car-card');
-            if (carCard) {
-                const carModel = carCard.querySelector('.car-header h3')?.textContent || 'Unknown';
-                console.log(`${this.classList.contains('active') ? 'Added' : 'Removed'} ${carModel} ${this.classList.contains('active') ? 'to' : 'from'} favorites`);
-                
-                // Example of how to send to Firebase
-                if (auth.currentUser) {
-                    // This is just placeholder - you would implement the actual Firestore update
-                    showNotification(`${this.classList.contains('active') ? 'Added to' : 'Removed from'} favorites!`, 'success');
-                }
-            }
-        });
+            })
+            .catch((error) => {
+                console.error("Error creating booking:", error);
+                showNotification("Failed to confirm booking. Please try again.", "error");
+            })
+            .finally(() => {
+                // Reset button state
+                confirmBookingBtn.innerHTML = '<i class="fas fa-check-circle"></i> Confirm Booking';
+                confirmBookingBtn.disabled = false;
+            });
     });
     
-    // Handle filter reset button
-    const resetBtn = document.querySelector('.reset-btn');
-    if (resetBtn) {
-        resetBtn.addEventListener('click', function() {
-            // Reset vehicle type
-            document.querySelectorAll('.vehicle-btn').forEach((btn, index) => {
-                btn.classList.remove('active');
-                if (index === 0) btn.classList.add('active'); // Car button active
-            });
-            
-            // Show car category section
-            if (carCategorySection) {
-                carCategorySection.style.display = 'block';
-            }
-            
-            // Reset car categories
-            document.querySelectorAll('.category-item input[type="checkbox"]').forEach((checkbox, index) => {
-                // Check first 4 categories, uncheck others
-                checkbox.checked = index < 4;
-            });
-            
-            // Reset brand and model dropdowns
-            if (carBrandSelect) {
-                carBrandSelect.selectedIndex = 0;
-            }
-            
-            if (carModelSelect) {
-                carModelSelect.innerHTML = '<option>Select Model</option>';
-            }
-            
-            // Reset color selection to first
-            const firstColor = document.querySelector('.color-item input[type="radio"]');
-            if (firstColor) firstColor.checked = true;
-            
-            // Reset toggle switches
-            document.querySelectorAll('.switch input').forEach(toggle => {
-                toggle.checked = false;
-            });
-            
-            // Reset button toggles
-            document.querySelectorAll('.toggle-btn').forEach((btn, index) => {
-                btn.classList.remove('active');
-                if (index === 0) btn.classList.add('active'); // First button active
-            });
-            
-            // Reset price range
-            if (priceMinInput && priceMaxInput) {
-                priceMinInput.value = 200;
-                priceMaxInput.value = 2000;
-                updateSliderTrack();
-            }
-            
-            // Reset pickup dates to today/tomorrow
-            if (pickupDateInput && returnDateInput) {
-                pickupDateInput.value = today;
-                
-                const tomorrow = new Date();
-                tomorrow.setDate(tomorrow.getDate() + 1);
-                returnDateInput.value = tomorrow.toISOString().split('T')[0];
-            }
-            
-            // Reset pickup time
-            const pickupTimeInput = document.getElementById('pickupTime');
-            if (pickupTimeInput) {
-                pickupTimeInput.value = '10:00';
-            }
-            
-            // Show all cars
-            showAllCars();
-            
-            showNotification('Filters have been reset', 'info');
+    // Calculate pricing based on dates and selected vehicle
+    function calculatePricing() {
+        const pickupDate = new Date(document.getElementById('summaryPickupDate').value);
+        const returnDate = new Date(document.getElementById('summaryReturnDate').value);
+        
+        // Default values if dates not selected
+        if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
+            return {
+                days: 0,
+                subtotal: 0,
+                taxes: 0,
+                total: 0
+            };
+        }
+        
+        // Calculate number of days
+        const timeDiff = returnDate.getTime() - pickupDate.getTime();
+        const days = Math.max(1, Math.ceil(timeDiff / (1000 * 3600 * 24)));
+        
+        // Calculate costs
+        const subtotal = selectedVehicle.price * days;
+        const taxRate = 0.12; // 12% tax rate
+        const taxes = subtotal * taxRate;
+        const total = subtotal + taxes;
+        
+        return {
+            days,
+            subtotal,
+            taxes,
+            total
+        };
+    }
+    
+    // Update pricing summary in the UI
+    function updatePricingSummary() {
+        const { days, subtotal, taxes, total } = calculatePricing();
+        
+        document.getElementById('dailyRateDisplay').textContent = `$${selectedVehicle.price}`;
+        document.getElementById('numberOfDaysDisplay').textContent = days;
+        document.getElementById('subtotalDisplay').textContent = `$${subtotal.toFixed(2)}`;
+        document.getElementById('taxesDisplay').textContent = `$${taxes.toFixed(2)}`;
+        document.getElementById('totalDisplay').textContent = `$${total.toFixed(2)}`;
+    }
+    
+    // Create booking in Firestore
+    function createBooking(vehicle, pickupDate, returnDate, pickupLocation, dropoffLocation, days, total) {
+        const currentUser = getCurrentUser();
+        
+        if (!currentUser) {
+            return Promise.reject(new Error("User not logged in"));
+        }
+        
+        return db.collection('rentals').add({
+            userId: currentUser.uid,
+            vehicleId: vehicle.id,
+            vehicleType: vehicle.name,
+            pickupDate: firebase.firestore.Timestamp.fromDate(new Date(pickupDate)),
+            returnDate: firebase.firestore.Timestamp.fromDate(new Date(returnDate)),
+            location: pickupLocation,
+            dropoffLocation: dropoffLocation || pickupLocation,
+            totalDays: days,
+            dailyRate: vehicle.price,
+            totalCost: total,
+            status: 'active',
+            hasReview: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
     }
     
-    // Apply filters button
-    const applyFiltersBtn = document.querySelector('.apply-filters-btn');
-    if (applyFiltersBtn) {
-        applyFiltersBtn.addEventListener('click', function() {
-            filterCars();
-            showNotification('Filters applied', 'success');
-        });
+    // Helper function to get vehicle type description
+    function getVehicleType(id) {
+        const typeMap = {
+            'economy': 'Economy Class',
+            'compact': 'Compact Class',
+            'suv': 'SUV / Crossover',
+            'luxury': 'Luxury Class'
+        };
+        
+        return typeMap[id] || 'Vehicle';
+    }
+}
+
+// Set up booking buttons
+function setupBookingButtons() {
+    console.log('Setting up booking buttons');
+    
+    // Use event delegation instead of attaching listeners to each button
+    // This is more efficient for large numbers of buttons
+    const vehiclesGrid = document.querySelector('.vehicles-grid');
+    
+    if (!vehiclesGrid) {
+        console.warn('Vehicles grid not found when setting up booking buttons');
+        
+        // Retry once after a short delay if grid isn't found
+        setTimeout(() => {
+            const retryGrid = document.querySelector('.vehicles-grid');
+            if (retryGrid) {
+                setupBookingButtonsDelegated(retryGrid);
+            } else {
+                console.error('Vehicles grid still not found after retry');
+            }
+        }, 50);
+        
+        return;
     }
     
-    // Book now buttons
-    const bookNowBtns = document.querySelectorAll('.book-now-btn:not([disabled])');
-    bookNowBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const carCard = this.closest('.car-card');
-            if (carCard) {
-                const carModel = carCard.querySelector('.car-header h3')?.textContent || 'Unknown';
-                const priceText = carCard.querySelector('.car-price p')?.textContent || '';
-                
-                // Would normally open a booking modal or navigate to booking page
-                showNotification(`Booking initiated for ${carModel}`, 'success');
-                
-                // Example of booking data that would be sent to Firebase
-                const bookingData = {
-                    vehicleModel: carModel,
-                    price: priceText,
-                    pickupDate: pickupDateInput ? pickupDateInput.value : today,
-                    returnDate: returnDateInput ? returnDateInput.value : '',
-                    pickupTime: document.getElementById('pickupTime') ? document.getElementById('pickupTime').value : '10:00',
-                    timestamp: new Date()
-                };
-                
-                console.log('Booking data:', bookingData);
-            }
-        });
-    });
+    setupBookingButtonsDelegated(vehiclesGrid);
     
-    // Toggle buttons for rental type
-    const toggleBtns = document.querySelectorAll('.toggle-btn');
-    toggleBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
-            // Remove active class from all buttons in group
-            const btnGroup = this.parentElement;
-            btnGroup.querySelectorAll('.toggle-btn').forEach(b => {
-                b.classList.remove('active');
-            });
-            
-            // Add active class to clicked button
-            this.classList.add('active');
-            
-            // Filter cars
-            filterCars();
-        });
-    });
-    
-    // Function to filter cars based on selected filters
-    function filterCars() {
-        const carCards = document.querySelectorAll('.car-card:not(.promo-card)');
-        const vehicleType = document.querySelector('.vehicle-btn.active').getAttribute('data-type');
-        const minPrice = parseInt(priceMinInput.value);
-        const maxPrice = parseInt(priceMaxInput.value);
-        const selectedBrand = carBrandSelect.value;
-        const selectedModel = carModelSelect.value;
-        const availableOnly = document.querySelector('.toggle-option input[type="checkbox"]').checked;
+    function setupBookingButtonsDelegated(grid) {
+        // Remove any existing listeners to prevent duplicates
+        grid.removeEventListener('click', handleBookingButtonClick);
         
-        // Gather selected categories
-        const selectedCategories = [];
-        document.querySelectorAll('.category-item input[type="checkbox"]:checked').forEach(checkbox => {
-            selectedCategories.push(checkbox.parentElement.querySelector('span:not(.checkmark)').textContent);
-        });
+        // Add a single listener to the container
+        grid.addEventListener('click', handleBookingButtonClick);
         
-        // Hide all cards initially
-        carCards.forEach(card => {
-            card.style.display = 'none';
-        });
-        
-        // Filter cars based on criteria
-        carCards.forEach(card => {
-            // Skip non-matching vehicle types
-            if (vehicleType === 'bike' && !card.classList.contains('bike-card')) {
-                return;
-            }
+        function handleBookingButtonClick(e) {
+            // Check if the clicked element is a booking button or is inside one
+            const bookButton = e.target.closest('.book-now-btn');
             
-            // Check if car is available (if filter is active)
-            if (availableOnly && card.querySelector('.status-pill.booked')) {
-                return;
-            }
+            if (!bookButton) return; // Not a booking button click
             
-            // Check price range
-            const priceText = card.querySelector('.car-price p').textContent;
-            const price = parseInt(priceText.replace(/[₹,]/g, ''));
-            if (price < minPrice || price > maxPrice) {
-                return;
-            }
-            
-            // Check brand
-            if (selectedBrand !== 'All Brands') {
-                const brand = card.querySelector('.car-header h3').textContent.split('|')[0].trim();
-                if (brand !== selectedBrand) {
+            try {
+                e.preventDefault();
+                const vehicleId = bookButton.getAttribute('data-vehicle-id');
+                if (!vehicleId) {
+                    console.error('Missing vehicle ID on booking button');
+                    showNotification('Error: Unable to identify selected vehicle', 'error');
                     return;
                 }
                 
-                // Check model (only if a specific model is selected)
-                if (selectedModel !== 'Select Model') {
-                    const model = card.querySelector('.car-header h3').textContent.split('|')[1].trim();
-                    if (model !== selectedModel) {
+                const vehicleCard = bookButton.closest('.vehicle-card');
+                if (!vehicleCard) {
+                    console.error('Could not find parent vehicle card for button');
+                    showNotification('Error: Unable to process booking', 'error');
+                    return;
+                }
+                
+                const vehicleNameElement = vehicleCard.querySelector('.vehicle-name-type h3');
+                const vehicleName = vehicleNameElement ? vehicleNameElement.textContent : 'Selected Vehicle';
+                
+                console.log(`Booking button clicked for vehicle: ${vehicleName} (${vehicleId})`);
+                
+                // Show booking form section
+                const bookingFormSection = document.getElementById('booking-form-section');
+                const vehiclesSection = document.getElementById('vehicles-section');
+                
+                if (bookingFormSection && vehiclesSection) {
+                    // Hide vehicles section and show booking form
+                    vehiclesSection.style.display = 'none';
+                    bookingFormSection.style.display = 'block';
+                    
+                    // Scroll to booking form (use behavior: 'auto' for faster scrolling)
+                    bookingFormSection.scrollIntoView({ behavior: 'auto' });
+                    
+                    // Update booking form with selected vehicle
+                    populateBookingForm(vehicleId, vehicleName);
+                } else {
+                    // Switch to booking section via nav
+                    const bookSection = document.querySelector('#book');
+                    if (bookSection) {
+                        // Get the parent of the current displayed section
+                        const currentSection = document.querySelector('.content-section.active');
+                        if (currentSection) {
+                            currentSection.classList.remove('active');
+                        }
+                        
+                        // Show booking section
+                        bookSection.classList.add('active');
+                        
+                        // Update nav items - find all at once to minimize DOM queries
+                        const navItems = document.querySelectorAll('.nav-item');
+                        navItems.forEach(item => item.classList.remove('active'));
+                        
+                        const bookNavItem = document.querySelector('.nav-item[data-section="book"]');
+                        if (bookNavItem) {
+                            bookNavItem.classList.add('active');
+                        }
+                        
+                        // Store the vehicle ID in a hidden field
+                        let hiddenField = document.getElementById('selectedVehicleId');
+                        const bookingForm = document.querySelector('.booking-form');
+                        
+                        if (!hiddenField && bookingForm) {
+                            hiddenField = document.createElement('input');
+                            hiddenField.type = 'hidden';
+                            hiddenField.id = 'selectedVehicleId';
+                            bookingForm.appendChild(hiddenField);
+                        }
+                        
+                        if (hiddenField) {
+                            hiddenField.value = vehicleId;
+                        } else {
+                            console.error('Could not find or create hidden vehicle ID field');
+                        }
+                    } else {
+                        console.error('Booking section not found');
+                        showNotification('Error: Booking section not found', 'error');
+                    }
+                }
+                
+                // Show notification
+                showNotification(`Vehicle "${vehicleName}" selected. Please complete your booking details.`, 'info');
+            } catch (error) {
+                console.error('Error handling booking button click:', error);
+                showNotification('An error occurred while processing your selection', 'error');
+            }
+        }
+    }
+}
+
+// Load available vehicles from MongoDB
+async function loadAvailableVehicles() {
+    try {
+        console.log('Loading vehicle inventory from MongoDB...');
+        const vehiclesContainer = document.querySelector('.vehicles-container');
+        
+        if (!vehiclesContainer) {
+            console.error('Vehicles container not found. DOM structure:', 
+                document.querySelector('.content-section.active')?.id || 'No active section');
+            
+            // Try to find the book section and add container without delay
+            const bookSection = document.getElementById('book');
+            if (bookSection) {
+                console.log('Book section found, creating vehicles container');
+                const newContainer = document.createElement('div');
+                newContainer.className = 'vehicles-container';
+                bookSection.appendChild(newContainer);
+                
+                // Continue with this new container instead of recursively calling
+                loadAvailableVehicles();
+                return;
+            }
+            
+            showNotification('Error: Vehicle container not found in the DOM', 'error');
+            return;
+        }
+        
+        // Show loading state - Use a simpler loading indicator to reduce DOM operations
+        vehiclesContainer.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-pulse"></i> Loading...</div>';
+        
+        // Pre-prepare DOM elements for better performance
+        const headerHTML = document.createElement('div');
+        headerHTML.className = 'vehicles-header';
+        
+        const filtersSection = document.createElement('div');
+        filtersSection.className = 'booking-filters';
+        
+        const vehiclesGrid = document.createElement('div');
+        vehiclesGrid.className = 'vehicles-grid';
+        
+        // Fetch vehicles from MongoDB using IPC
+        const { ipcRenderer } = require('electron');
+        
+        if (!ipcRenderer) {
+            console.error('Electron IPC renderer is not available');
+            vehiclesContainer.innerHTML = '<div class="error-state"><p>Error: IPC renderer not available</p></div>';
+            throw new Error('Electron IPC renderer is not available');
+        }
+        
+        // Add a timestamp parameter to avoid browser caching
+        const timestamp = new Date().getTime();
+        console.time('vehicleApiCall'); // Add performance measurement
+        
+        // Single API call with shorter timeout and better error handling
+        try {
+            console.log('Sending API request to fetch vehicles...');
+            const response = await Promise.race([
+                ipcRenderer.invoke('api-call', {
+                    method: 'GET',
+                    url: `/api/vehicles?nocache=${timestamp}`
+                }),
+                // Timeout after 5 seconds
+                new Promise((_, reject) => setTimeout(() => reject(new Error('API timeout')), 5000))
+            ]);
+            
+            console.timeEnd('vehicleApiCall');
+            
+            if (!response || !response.ok) {
+                throw new Error(response?.statusText || 'Failed to fetch vehicles');
+            }
+            
+            if (!response.data || !Array.isArray(response.data) || response.data.length === 0) {
+                console.log('No vehicles data received or empty array');
+                vehiclesContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-car-alt" style="font-size: 48px; color: #ccc; margin-bottom: 20px;"></i>
+                        <h3>No vehicles available</h3>
+                        <p>There are no vehicles available right now. Please check back later.</p>
+                        <button id="retryLoadVehicles" class="retry-btn">Retry</button>
+                    </div>
+                `;
+                
+                document.getElementById('retryLoadVehicles')?.addEventListener('click', () => {
+                    loadAvailableVehicles();
+                });
+                
+                return;
+            }
+            
+            const vehicles = response.data;
+            console.log(`Vehicles loaded successfully: ${vehicles.length} vehicles found`);
+            
+            // Extract unique values for filters once to avoid multiple iterations
+            const uniqueBrands = [...new Set(vehicles.map(v => v.make))];
+            const uniqueTypes = [...new Set(vehicles.map(v => v.type))];
+            
+            // Clear container
+            vehiclesContainer.innerHTML = '';
+            
+            // Build header
+            headerHTML.innerHTML = `
+                <h2>${vehicles.length} vehicles available</h2>
+                <div class="view-all">
+                    <a href="#" id="viewAllVehicles">View all</a>
+                </div>
+            `;
+            
+            // Add filter tabs directly without creating a string first
+            const filterTabs = document.createElement('div');
+            filterTabs.className = 'filter-tabs';
+            filterTabs.innerHTML = `
+                <button class="filter-tab active" data-filter="all">All Vehicles</button>
+                <button class="filter-tab" data-filter="available">Available</button>
+                <button class="filter-tab" data-filter="cars">Cars</button>
+                <button class="filter-tab" data-filter="bikes">Bikes</button>
+                <button class="filter-tab" data-filter="maintenance">Maintenance</button>
+            `;
+            
+            // Build filters section
+            const filterSection = document.createElement('div');
+            filterSection.className = 'filter-section';
+            filterSection.innerHTML = `
+                <h3>Filters</h3>
+                <div class="filter-item">
+                    <label>Brand</label>
+                    <select id="brandFilter">
+                        <option value="">All Brands</option>
+                        ${uniqueBrands.map(brand => 
+                            `<option value="${brand}">${brand}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                
+                <div class="filter-item">
+                    <label>Vehicle Type</label>
+                    <select id="typeFilter">
+                        <option value="">All Types</option>
+                        ${uniqueTypes.map(type => 
+                            `<option value="${type}">${type.charAt(0).toUpperCase() + type.slice(1)}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                
+                <div class="filter-item">
+                    <label>Price range per day</label>
+                    <div class="price-range">
+                        <input type="number" id="minPrice" placeholder="₹ Min" min="0">
+                        <input type="number" id="maxPrice" placeholder="₹ Max" min="0">
+                    </div>
+                </div>
+                
+                <div class="filter-item">
+                    <label>Vehicle Status</label>
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="availableCheckbox" value="available" checked> Available Now
+                        </label>
+                    </div>
+                </div>
+                
+                <button id="applyFilters" class="apply-filters-btn">Apply Filters</button>
+                <button id="resetFilters" class="reset-filters-btn">Reset</button>
+            `;
+            
+            filtersSection.appendChild(filterSection);
+            
+            // Use DocumentFragment for better performance
+            const fragment = document.createDocumentFragment();
+            
+            // Batch process vehicle cards (max 20 at a time) for better browser responsiveness
+            const batchSize = 20;
+            const batchCount = Math.ceil(vehicles.length / batchSize);
+            
+            console.time('vehicleCardCreation');
+            
+            // Initial batch synchronously for faster initial display
+            vehicles.slice(0, Math.min(batchSize, vehicles.length)).forEach(vehicle => {
+                try {
+                    const vehicleCard = createVehicleCard(vehicle);
+                    fragment.appendChild(vehicleCard);
+                } catch (cardError) {
+                    console.error('Error creating vehicle card:', cardError);
+                }
+            });
+            
+            // Add the header, filters, and grid to the container
+            vehiclesContainer.appendChild(headerHTML);
+            vehiclesContainer.appendChild(filterTabs);
+            
+            const bookingContent = document.createElement('div');
+            bookingContent.className = 'booking-content';
+            
+            bookingContent.appendChild(filtersSection);
+            bookingContent.appendChild(vehiclesGrid);
+            vehiclesContainer.appendChild(bookingContent);
+            
+            // Add initial batch of vehicles
+            vehiclesGrid.appendChild(fragment);
+            
+            // Process remaining batches asynchronously for better responsiveness
+            if (batchCount > 1) {
+                let currentBatch = 1;
+                
+                function processNextBatch() {
+                    if (currentBatch >= batchCount) {
+                        console.timeEnd('vehicleCardCreation');
                         return;
+                    }
+                    
+                    const start = currentBatch * batchSize;
+                    const end = Math.min((currentBatch + 1) * batchSize, vehicles.length);
+                    const batchFragment = document.createDocumentFragment();
+                    
+                    vehicles.slice(start, end).forEach(vehicle => {
+                        try {
+                            const vehicleCard = createVehicleCard(vehicle);
+                            batchFragment.appendChild(vehicleCard);
+                        } catch (cardError) {
+                            console.error('Error creating vehicle card:', cardError);
+                        }
+                    });
+                    
+                    vehiclesGrid.appendChild(batchFragment);
+                    currentBatch++;
+                    
+                    // Use requestAnimationFrame for smoother UI
+                    requestAnimationFrame(processNextBatch);
+                }
+                
+                // Start processing the next batch
+                requestAnimationFrame(processNextBatch);
+            } else {
+                console.timeEnd('vehicleCardCreation');
+            }
+            
+            // Set up event listeners for booking buttons
+            setupBookingButtons();
+            
+            // Set up filter functionality
+            setupFilterFunctionality(vehicles);
+            
+            console.log('Vehicle loading complete');
+            
+        } catch (error) {
+            console.timeEnd('vehicleApiCall');
+            console.error('API call failed:', error);
+            vehiclesContainer.innerHTML = `<div class="error-state">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Failed to load vehicles: ${error.message}</p>
+                <button id="retryLoadVehicles" class="retry-btn">Retry</button>
+            </div>`;
+            
+            document.getElementById('retryLoadVehicles')?.addEventListener('click', () => {
+                loadAvailableVehicles();
+            });
+        }
+    } catch (error) {
+        console.error('Error loading available vehicles:', error);
+        const vehiclesContainer = document.querySelector('.vehicles-container');
+        if (vehiclesContainer) {
+            vehiclesContainer.innerHTML = `<div class="error-state">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Failed to load vehicles: ${error.message}</p>
+                <button id="retryLoadVehicles" class="retry-btn">Retry</button>
+            </div>`;
+            
+            document.getElementById('retryLoadVehicles')?.addEventListener('click', () => {
+                loadAvailableVehicles();
+            });
+        }
+    }
+}
+
+function createVehicleCard(vehicle) {
+    try {
+        if (!vehicle || typeof vehicle !== 'object') {
+            console.error('Invalid vehicle data:', vehicle);
+            return document.createElement('div'); // Return empty div to avoid errors
+        }
+        
+        const card = document.createElement('div');
+        card.className = 'vehicle-card';
+        card.setAttribute('data-id', vehicle._id || 'unknown');
+        card.setAttribute('data-type', vehicle.type || 'other');
+        card.setAttribute('data-status', vehicle.status || 'inactive');
+        card.setAttribute('data-price', (vehicle.pricing?.dailyRate || 0).toString());
+        
+        // Format price
+        const formattedPrice = vehicle.pricing?.dailyRate 
+            ? `₹${vehicle.pricing.dailyRate.toLocaleString()}`
+            : 'Price unavailable';
+        
+        // Determine availability badge text and class
+        let statusBadge = '';
+        let isFavorited = false; // This would come from user data in a real app
+        
+        if (vehicle.status === 'active') {
+            statusBadge = '<span class="status-badge available">Available</span>';
+        } else if (vehicle.status === 'booked') {
+            statusBadge = '<span class="status-badge booked">Booked till 10 PM</span>';
+        } else if (vehicle.status === 'maintenance') {
+            statusBadge = '<span class="status-badge maintenance">Maintenance</span>';
+        } else {
+            statusBadge = '<span class="status-badge inactive">Not Available</span>';
+        }
+        
+        // Use proper vehicle name
+        const vehicleName = vehicle.name || `${vehicle.make || 'Unknown'} ${vehicle.model || ''}`.trim() || 'Unknown Vehicle';
+        const vehicleType = (vehicle.type || 'other').charAt(0).toUpperCase() + (vehicle.type || 'other').slice(1);
+        
+        // Handle undefined values for vehicle properties
+        const seats = vehicle.specifications?.seats || 5;
+        const fuelType = vehicle.specifications?.fuelType || 'Petrol';
+        const transmission = vehicle.specifications?.transmission || 'Manual';
+        const rating = vehicle.rating?.average || '4.5';
+        const ratingCount = vehicle.rating?.count || '10';
+        
+        // Default icon based on type or fallback to car
+        const typeIcon = (vehicle.type || '').toLowerCase().includes('bike') ? 'fa-motorcycle' : 'fa-car';
+        
+        // Create the card HTML
+        card.innerHTML = `
+            <div class="card-header">
+                ${statusBadge}
+                <button class="favorite-btn${isFavorited ? ' active' : ''}" data-id="${vehicle._id || ''}">
+                    <i class="fas fa-heart"></i>
+                </button>
+            </div>
+            <div class="vehicle-type-display">
+                <div class="type-icon">
+                    <i class="fas ${typeIcon}"></i>
+                </div>
+                <div class="type-label">${vehicleType}</div>
+            </div>
+            <div class="vehicle-details">
+                <div class="vehicle-name-type">
+                    <h3>${vehicleName}</h3>
+                    <p class="vehicle-type">${vehicleType}</p>
+                </div>
+                <div class="vehicle-features">
+                    <span><i class="fas fa-user"></i> ${seats} Seats</span>
+                    <span><i class="fas fa-gas-pump"></i> ${fuelType}</span>
+                    <span><i class="fas fa-cog"></i> ${transmission}</span>
+                </div>
+                <div class="price-rating">
+                    <span class="price">${formattedPrice}/day</span>
+                    <span class="rating">
+                        <i class="fas fa-star"></i> ${rating} (${ratingCount})
+                    </span>
+                </div>
+            </div>
+            <button class="book-now-btn" data-vehicle-id="${vehicle._id || ''}" ${vehicle.status !== 'active' ? 'disabled' : ''}>
+                Book Now
+            </button>
+        `;
+        
+        return card;
+    } catch (error) {
+        console.error('Error creating vehicle card:', error, vehicle);
+        const errorCard = document.createElement('div');
+        errorCard.className = 'vehicle-card error';
+        errorCard.innerHTML = `
+            <div class="vehicle-details">
+                <div class="vehicle-name-type">
+                    <h3>Error Loading Vehicle</h3>
+                </div>
+                <div class="price-rating">
+                    <span class="price">Data error</span>
+                </div>
+            </div>
+        `;
+        return errorCard;
+    }
+}
+
+// Setup filter functionality
+function setupFilterFunctionality(allVehicles) {
+    // Get filter elements
+    const filterTabs = document.querySelectorAll('.filter-tab');
+    const brandFilter = document.getElementById('brandFilter');
+    const typeFilter = document.getElementById('typeFilter');
+    const minPriceInput = document.getElementById('minPrice');
+    const maxPriceInput = document.getElementById('maxPrice');
+    const availableCheckbox = document.querySelector('input[value="available"]');
+    const applyFiltersBtn = document.getElementById('applyFilters');
+    const resetFiltersBtn = document.getElementById('resetFilters');
+    
+    // Set up event listeners
+    filterTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active class from all tabs
+            filterTabs.forEach(t => t.classList.remove('active'));
+            // Add active class to clicked tab
+            tab.classList.add('active');
+            
+            const filter = tab.getAttribute('data-filter');
+            filterVehicles(filter);
+        });
+    });
+    
+    if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener('click', applyCustomFilters);
+    }
+    
+    if (resetFiltersBtn) {
+        resetFiltersBtn.addEventListener('click', () => {
+            // Reset all filter inputs
+            if (brandFilter) brandFilter.value = '';
+            if (typeFilter) typeFilter.value = '';
+            if (minPriceInput) minPriceInput.value = '';
+            if (maxPriceInput) maxPriceInput.value = '';
+            if (availableCheckbox) availableCheckbox.checked = true;
+            
+            // Reset to showing all vehicles
+            filterVehicles('all');
+            
+            // Reset active tab
+            filterTabs.forEach(t => t.classList.remove('active'));
+            filterTabs[0].classList.add('active');
+        });
+    }
+    
+    // Filter function for tabs
+    function filterVehicles(filter) {
+        const vehicleCards = document.querySelectorAll('.vehicle-card');
+        
+        vehicleCards.forEach(card => {
+            const type = card.getAttribute('data-type').toLowerCase();
+            const status = card.getAttribute('data-status');
+            
+            if (filter === 'all') {
+                card.style.display = '';
+            } else if (filter === 'available' && status === 'active') {
+                card.style.display = '';
+            } else if (filter === 'cars' && !['bike', 'scooter', 'cruiser', 'sports'].includes(type)) {
+                card.style.display = '';
+            } else if (filter === 'bikes' && ['bike', 'scooter', 'cruiser', 'sports'].includes(type)) {
+                card.style.display = '';
+            } else if (filter === 'maintenance' && status === 'maintenance') {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        updateVisibleCount();
+    }
+    
+    // Apply custom filters function
+    function applyCustomFilters() {
+        const vehicleCards = document.querySelectorAll('.vehicle-card');
+        const brand = brandFilter ? brandFilter.value.toLowerCase() : '';
+        const type = typeFilter ? typeFilter.value.toLowerCase() : '';
+        const minPrice = minPriceInput && minPriceInput.value ? parseFloat(minPriceInput.value) : 0;
+        const maxPrice = maxPriceInput && maxPriceInput.value ? parseFloat(maxPriceInput.value) : Infinity;
+        const onlyAvailable = availableCheckbox && availableCheckbox.checked;
+        
+        vehicleCards.forEach(card => {
+            const cardBrand = card.querySelector('.vehicle-name-type h3').textContent.toLowerCase();
+            const cardType = card.getAttribute('data-type').toLowerCase();
+            const cardPrice = parseFloat(card.getAttribute('data-price'));
+            const cardStatus = card.getAttribute('data-status');
+            
+            let shouldShow = true;
+            
+            if (brand && !cardBrand.includes(brand)) shouldShow = false;
+            if (type && cardType !== type) shouldShow = false;
+            if (cardPrice < minPrice || cardPrice > maxPrice) shouldShow = false;
+            if (onlyAvailable && cardStatus !== 'active') shouldShow = false;
+            
+            card.style.display = shouldShow ? '' : 'none';
+        });
+        
+        updateVisibleCount();
+    }
+    
+    // Update the visible vehicles count
+    function updateVisibleCount() {
+        const visibleCards = document.querySelectorAll('.vehicle-card[style=""]').length;
+        const header = document.querySelector('.vehicles-header h2');
+        if (header) {
+            header.textContent = `${visibleCards} cars to rent`;
+        }
+    }
+    
+    // Setup favorite button functionality
+    const favoriteButtons = document.querySelectorAll('.favorite-btn');
+    favoriteButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation(); // Prevent triggering parent card click
+            btn.classList.toggle('active');
+            
+            const vehicleId = btn.getAttribute('data-id');
+            const isFavorite = btn.classList.contains('active');
+            
+            // In a real app, would save this to user preferences in the database
+            console.log(`Vehicle ${vehicleId} ${isFavorite ? 'added to' : 'removed from'} favorites`);
+            
+            showNotification(`Vehicle ${isFavorite ? 'added to' : 'removed from'} favorites`, isFavorite ? 'success' : 'info');
+        });
+    });
+}
+
+// Populate booking form with selected vehicle data
+function populateBookingForm(vehicleId, vehicleName) {
+    console.time('bookingFormPopulation');
+    
+    // Get all needed form elements at once to minimize DOM queries
+    const elements = {
+        vehicleNameField: document.getElementById('selectedVehicleName'),
+        vehicleIdField: document.getElementById('selectedVehicleId'),
+        bookingHeader: document.querySelector('.booking-form h2'),
+        pickupDateInput: document.getElementById('pickupDate'),
+        returnDateInput: document.getElementById('returnDate')
+    };
+    
+    // Update vehicle name and ID
+    if (elements.vehicleNameField) {
+        elements.vehicleNameField.textContent = vehicleName;
+    }
+    
+    if (elements.vehicleIdField) {
+        elements.vehicleIdField.value = vehicleId;
+    }
+    
+    if (elements.bookingHeader) {
+        elements.bookingHeader.textContent = `Book ${vehicleName}`;
+    }
+    
+    // Set minimum date for booking - calculate dates once
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    const todayStr = today.toISOString().split('T')[0];
+    const tomorrowStr = tomorrow.toISOString().split('T')[0];
+    
+    if (elements.pickupDateInput) {
+        elements.pickupDateInput.min = todayStr;
+        elements.pickupDateInput.value = todayStr;
+    }
+    
+    if (elements.returnDateInput) {
+        elements.returnDateInput.min = tomorrowStr;
+        elements.returnDateInput.value = tomorrowStr;
+    }
+    
+    // Start fetching the vehicle details immediately
+    fetchVehicleDetails(vehicleId);
+    console.timeEnd('bookingFormPopulation');
+}
+
+// Fetch vehicle details for booking form
+async function fetchVehicleDetails(vehicleId) {
+    console.time('vehicleDetailsFetch');
+    try {
+        // Cache vehicle details for repeat access
+        if (window.vehicleDetailsCache && window.vehicleDetailsCache[vehicleId]) {
+            console.log('Using cached vehicle details');
+            updateBookingFormWithVehicleDetails(window.vehicleDetailsCache[vehicleId]);
+            console.timeEnd('vehicleDetailsFetch');
+            return;
+        }
+        
+        const { ipcRenderer } = require('electron');
+        
+        // Use Promise.race to set a timeout
+        const response = await Promise.race([
+            ipcRenderer.invoke('api-call', {
+                method: 'GET',
+                url: `/api/vehicles/${vehicleId}`
+            }),
+            new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout fetching vehicle details')), 3000)
+            )
+        ]);
+        
+        if (!response || !response.ok || !response.data) {
+            throw new Error(response?.statusText || 'Failed to fetch vehicle details');
+        }
+        
+        const vehicle = response.data;
+        console.log('Vehicle details loaded');
+        
+        // Cache the vehicle details for future use
+        if (!window.vehicleDetailsCache) window.vehicleDetailsCache = {};
+        window.vehicleDetailsCache[vehicleId] = vehicle;
+        
+        // Update the booking form with vehicle details
+        updateBookingFormWithVehicleDetails(vehicle);
+        
+    } catch (error) {
+        console.error('Error fetching vehicle details:', error);
+        showNotification('Error loading vehicle details. Please try again.', 'error');
+    } finally {
+        console.timeEnd('vehicleDetailsFetch');
+    }
+}
+
+// Update booking form with vehicle details
+function updateBookingFormWithVehicleDetails(vehicle) {
+    console.time('updateBookingForm');
+    
+    // Get all form elements at once
+    const elements = {
+        vehicleTypeField: document.getElementById('vehicleTypeDisplay'),
+        dailyRateField: document.getElementById('dailyRateDisplay'),
+        totalAmountField: document.getElementById('totalAmount'),
+        pickupDate: document.getElementById('pickupDate'),
+        returnDate: document.getElementById('returnDate')
+    };
+    
+    // Type-safe updates with default values
+    const vehicleType = (vehicle.type || 'standard').charAt(0).toUpperCase() + (vehicle.type || 'standard').slice(1);
+    const rate = vehicle.pricing?.dailyRate || 0;
+    
+    // Update fields all at once
+    if (elements.vehicleTypeField) {
+        elements.vehicleTypeField.textContent = vehicleType;
+    }
+    
+    if (elements.dailyRateField) {
+        elements.dailyRateField.textContent = `₹${rate.toLocaleString()}`;
+    }
+    
+    // Calculate initial total amount
+    if (elements.totalAmountField) {
+        calculateBookingTotal(vehicle);
+    }
+    
+    // Add event listeners to date inputs - use debounce to avoid excessive calculations
+    if (elements.pickupDate && elements.returnDate) {
+        // Remove any existing listeners to prevent duplicates
+        const newPickupDate = elements.pickupDate.cloneNode(true);
+        const newReturnDate = elements.returnDate.cloneNode(true);
+        
+        elements.pickupDate.parentNode.replaceChild(newPickupDate, elements.pickupDate);
+        elements.returnDate.parentNode.replaceChild(newReturnDate, elements.returnDate);
+        
+        // Add debounced event listeners
+        newPickupDate.addEventListener('change', () => calculateBookingTotal(vehicle));
+        newReturnDate.addEventListener('change', () => calculateBookingTotal(vehicle));
+    }
+    
+    console.timeEnd('updateBookingForm');
+}
+
+// Calculate booking total amount
+function calculateBookingTotal(vehicle) {
+    const pickupDate = document.getElementById('pickupDate');
+    const returnDate = document.getElementById('returnDate');
+    const totalAmountField = document.getElementById('totalAmount');
+    const daysCountField = document.getElementById('daysCount');
+    
+    if (!pickupDate || !returnDate || !totalAmountField) return;
+    
+    const start = new Date(pickupDate.value);
+    const end = new Date(returnDate.value);
+    
+    // Validate dates
+    if (start >= end) {
+        showNotification('Return date must be after pickup date', 'error');
+        
+        // Reset return date to be one day after pickup date
+        const tomorrow = new Date(start);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        returnDate.value = tomorrow.toISOString().split('T')[0];
+        
+        // Use setTimeout to avoid possible recursion issues
+        setTimeout(() => calculateBookingTotal(vehicle), 0);
+        return;
+    }
+    
+    // Calculate number of days
+    const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    
+    // Get daily rate
+    const dailyRate = vehicle.pricing?.dailyRate || 0;
+    
+    // Calculate total
+    const total = days * dailyRate;
+    
+    // Update UI
+    totalAmountField.textContent = `₹${total.toLocaleString()}`;
+    
+    // Update days count if field exists
+    if (daysCountField) {
+        daysCountField.textContent = days;
+    }
+    
+    return { days, total };
+}
+
+// Initialize the dashboard
+document.addEventListener('DOMContentLoaded', async () => {
+    try {
+        console.log('Customer dashboard initializing...');
+        
+        // Initialize Firebase if not already done
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        // Initialize UI elements
+        initializeUI();
+        setupEventListeners();
+        
+        // Function to check user role
+        async function checkUserRole(user) {
+            if (!user) return null;
+            
+            try {
+                console.log('Checking user role for:', user.uid);
+                
+                // First check users collection for user type
+                const userDoc = await firebase.firestore().collection('users').doc(user.uid).get();
+                
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    console.log('User type from users collection:', userData.userType);
+                    
+                    // If not a customer, show notification and redirect immediately
+                    if (userData.userType !== 'customer') {
+                        console.log('User is not a customer, redirecting...');
+                        localStorage.setItem('isRedirecting', 'true');
+                        
+                        // Show notification about unauthorized access before redirecting
+                        showNotification('You do not have permission to access the customer dashboard. Redirecting to agent dashboard...', 'error');
+                        
+                        // Redirect after a short delay so notification can be seen
+                        setTimeout(() => {
+                            if (userData.userType === 'agent') {
+                                window.location.href = 'agent-dashboard.html';
+                            } else if (userData.userType === 'admin') {
+                                window.location.href = 'admin-dashboard.html';
+                            } else {
+                                window.location.href = 'index.html';
+                            }
+                        }, 2000);
+                        
+                        return null;
+                    }
+                    
+                    return userData;
+                }
+                
+                // If we get here, user doesn't have proper role definitions
+                // Redirect back to index for safety
+                console.log('User not found in users collection, or missing role data');
+                localStorage.setItem('isRedirecting', 'true');
+                showNotification('User account not properly configured. Redirecting to login...', 'error');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 2000);
+                
+                return null;
+            } catch (error) {
+                console.error('Error checking user role:', error);
+                return null;
+            }
+        }
+        
+        // Check if redirection is in progress
+        if (localStorage.getItem('isRedirecting')) {
+            console.log('Redirection in progress, waiting for it to complete');
+            // Set a timeout to clear the flag as a fallback
+            setTimeout(() => {
+                localStorage.removeItem('isRedirecting');
+                console.log('Cleared stale redirection flag');
+            }, 3000);
+        }
+        
+        // Check if user is logged in
+        const auth = firebase.auth();
+        auth.onAuthStateChanged(async (user) => {
+            // If redirection is already happening, don't interfere
+            if (localStorage.getItem('isRedirecting')) {
+                console.log('Redirection in progress, skipping auth checks');
+                return;
+            }
+            
+            if (user) {
+                console.log('User is logged in:', user.uid);
+                
+                // Check if the user has the customer role
+                const userData = await checkUserRole(user);
+                
+                // If checkUserRole returned null but we still have a user, 
+                // it means redirection is in progress or there was an error
+                if (!userData && user) {
+                    console.log('Role check returned no data but user exists, waiting for redirection to complete');
+                    return;
+                }
+                
+                // At this point, we have confirmed this is a customer on the right page
+                console.log('Customer confirmed on correct dashboard, loading data');
+                
+                // Double-check that we still have the customer type - security measure
+                if (userData && userData.userType && userData.userType !== 'customer') {
+                    console.log('Security check failed - user is not a customer');
+                    localStorage.setItem('isRedirecting', 'true');
+                    showNotification('Access denied. You must be a customer to view this page.', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'index.html';
+                    }, 2000);
+                    return;
+                }
+                
+                // Load user data
+                await loadUserData();
+                
+                // Load booking history if we're on the history tab
+                const historySection = document.getElementById('history');
+                if (historySection && historySection.classList.contains('active')) {
+                    await loadBookingHistory(user.uid);
+                }
+                
+                // For any navigation to history tab, make sure to load booking history
+                const historyNavItem = document.querySelector('.nav-item[data-section="history"]');
+                if (historyNavItem) {
+                    historyNavItem.addEventListener('click', () => {
+                        loadBookingHistory(user.uid);
+                    });
+                }
+                
+                // Set up a timer to refresh booking history every 60 seconds if the history tab is active
+                setInterval(() => {
+                    const historySection = document.getElementById('history');
+                    if (historySection && historySection.classList.contains('active')) {
+                        loadBookingHistory(user.uid);
+                    }
+                }, 60000);
+                
+                // Show user info on the profile section
+                const userNameElement = document.getElementById('userName');
+                if (userNameElement) {
+                    userNameElement.textContent = userData.name || user.displayName || user.email || 'User';
+                }
+                
+                // Make sure the DOM is fully ready, then load available vehicles
+                setTimeout(() => {
+                    console.log('Loading available vehicles with delay to ensure DOM is ready');
+                    try {
+                        const vehiclesContainer = document.querySelector('.vehicles-container');
+                        if (!vehiclesContainer) {
+                            console.error('Vehicles container not found in DOM. Current sections:', 
+                                Array.from(document.querySelectorAll('.content-section')).map(s => s.id).join(', '));
+                        } else {
+                            console.log('Vehicles container found, proceeding with loadAvailableVehicles()');
+                        }
+                        loadAvailableVehicles();
+                    } catch (e) {
+                        console.error('Error while loading vehicles:', e);
+                    }
+                }, 100); // Reduced from 500ms to 100ms
+            } else {
+                console.log('No user logged in, redirecting to login page');
+                window.location.href = 'index.html';
+            }
+        });
+    } catch (error) {
+        console.error('Error initializing dashboard:', error);
+    }
+});
+
+// Initialize UI elements
+function initializeUI() {
+    // Initialize date display
+    const dateElement = document.getElementById('currentDate');
+    if (dateElement) {
+        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        const today = new Date();
+        dateElement.textContent = today.toLocaleDateString('en-US', options);
+    }
+            
+            // Set minimum date for booking form
+            const today = new Date().toISOString().split('T')[0];
+    const pickupDateInput = document.getElementById('pickupDate');
+    const returnDateInput = document.getElementById('returnDate');
+    
+    if (pickupDateInput) pickupDateInput.min = today;
+    if (returnDateInput) returnDateInput.min = today;
+            
+            // Handle pickup date change to update return date minimum
+    if (pickupDateInput) {
+        pickupDateInput.addEventListener('change', function() {
+            if (returnDateInput) returnDateInput.min = this.value;
+        });
+    }
+    
+    // Handle back button in booking form
+    const backToVehiclesBtn = document.getElementById('backToVehicles');
+    if (backToVehiclesBtn) {
+        backToVehiclesBtn.addEventListener('click', function() {
+            // Hide booking form and show vehicles section
+            const bookingFormSection = document.getElementById('booking-form-section');
+            const vehiclesSection = document.getElementById('vehicles-section');
+            
+            if (bookingFormSection && vehiclesSection) {
+                bookingFormSection.style.display = 'none';
+                vehiclesSection.style.display = 'block';
+            }
+        });
+    }
+}
+
+// Setup event listeners
+function setupEventListeners() {
+    // Handle navigation
+    const navItems = document.querySelectorAll('.nav-item');
+    const sections = document.querySelectorAll('.content-section');
+    
+    navItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            // Remove active class from all items and sections
+            navItems.forEach(navItem => navItem.classList.remove('active'));
+            sections.forEach(section => section.classList.remove('active'));
+            
+            // Add active class to clicked item
+            item.classList.add('active');
+            
+            // Show corresponding section
+            const sectionId = item.getAttribute('data-section');
+            document.getElementById(sectionId).classList.add('active');
+        });
+    });
+    
+    // Handle logout
+    const logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', () => {
+            firebase.auth().signOut()
+                .then(() => {
+                    console.log('User signed out');
+            window.location.href = 'index.html';
+                })
+                .catch(error => {
+                    console.error('Sign out error:', error);
+    });
+        });
+    }
+    
+    // Handle booking form submission
+    const bookingForm = document.querySelector('.booking-form');
+    if (bookingForm) {
+        bookingForm.addEventListener('submit', handleBookingSubmit);
+    }
+}
+
+// Handle booking form submission
+async function handleBookingSubmit(e) {
+    e.preventDefault();
+    
+    try {
+        // Get the current user
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            showNotification('You must be logged in to book a vehicle', 'error');
+            return;
+        }
+        
+        // Get form data
+        const pickupDate = document.getElementById('pickupDate').value;
+        const returnDate = document.getElementById('returnDate').value;
+        const location = document.getElementById('location')?.value || 'Default Location';
+        const vehicleId = document.getElementById('selectedVehicleId')?.value;
+        
+        if (!pickupDate || !returnDate) {
+            showNotification('Please select pickup and return dates', 'error');
+            return;
+        }
+        
+        if (!vehicleId) {
+            showNotification('Please select a vehicle', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const submitButton = e.target.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            submitButton.disabled = true;
+        }
+        
+        // Get vehicle details using IPC
+        const { ipcRenderer } = require('electron');
+        
+        const vehicleResponse = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/vehicles/${vehicleId}`
+        });
+        
+        if (!vehicleResponse.ok || !vehicleResponse.data) {
+            throw new Error('Failed to get vehicle details');
+        }
+        
+        const vehicle = vehicleResponse.data;
+        
+        // Calculate dates and total
+        const start = new Date(pickupDate);
+        const end = new Date(returnDate);
+        const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+        const dailyRate = vehicle.pricing?.dailyRate || 0;
+        const total = days * dailyRate;
+        
+        // Generate a unique ID for the Firebase booking
+        const firebaseBookingId = `booking_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+        
+        // Create booking object for MongoDB
+        const bookingData = {
+            userId: user.uid,
+            userName: user.displayName || user.email.split('@')[0],
+            vehicleId: vehicleId,
+            vehicleName: `${vehicle.make} ${vehicle.model}`,
+            vehicleType: vehicle.type,
+            agentId: vehicle.agentId,
+            pickupDate: start.toISOString(),
+            returnDate: end.toISOString(),
+            pickupLocation: location,
+            returnLocation: location,
+            days: days,
+            dailyRate: dailyRate,
+            totalAmount: total,
+            status: 'confirmed',
+            paymentStatus: 'completed',
+            firebaseId: firebaseBookingId,
+            createdAt: new Date().toISOString()
+        };
+        
+        console.log('Sending booking data to API:', bookingData);
+        
+        // First create the booking in Firebase
+        console.log('Creating booking in Firebase first');
+        const userRef = firebase.firestore().collection('users').doc(user.uid);
+        
+        // Add to Firebase rentals
+        await userRef.update({
+            'rentals': firebase.firestore.FieldValue.arrayUnion({
+                id: firebaseBookingId,
+                vehicleId: vehicleId,
+                vehicleName: `${vehicle.make} ${vehicle.model}`,
+                pickupDate: firebase.firestore.Timestamp.fromDate(start),
+                returnDate: firebase.firestore.Timestamp.fromDate(end),
+                status: 'confirmed',
+                amount: total
+            }),
+            'activeRentals': firebase.firestore.FieldValue.increment(1),
+            'totalTrips': firebase.firestore.FieldValue.increment(1),
+            'lastActivity': {
+                type: 'booking',
+                vehicleName: `${vehicle.make} ${vehicle.model}`,
+                date: firebase.firestore.Timestamp.now()
+            }
+        });
+        
+        console.log('Firebase booking created, now sending to MongoDB');
+        
+        // Submit booking to API
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'POST',
+            url: '/api/bookings',
+            body: JSON.stringify(bookingData)
+        });
+        
+        // Check response
+        if (!response.ok) {
+            const errorMessage = response.data?.message || 'Failed to create booking';
+            throw new Error(errorMessage);
+        }
+        
+        console.log('Booking created successfully in MongoDB:', response.data);
+        
+        // Now update the vehicle status in MongoDB
+        const updateVehicleResponse = await ipcRenderer.invoke('api-call', {
+            method: 'PUT',
+            url: `/api/vehicles/${vehicleId}/status`,
+            body: JSON.stringify({ 
+                status: 'booked',
+                bookedDates: {
+                    start: start.toISOString(),
+                    end: end.toISOString()
+                }
+            })
+        });
+        
+        if (!updateVehicleResponse.ok) {
+            console.warn('Failed to update vehicle status in MongoDB, but booking was created');
+        }
+        
+        // Show success message
+        showNotification('Booking completed successfully!', 'success');
+        
+        // Reset form and UI
+        if (submitButton) {
+            submitButton.innerHTML = 'Complete Booking';
+            submitButton.disabled = false;
+        }
+        
+        // Redirect to booking history after a delay
+        setTimeout(() => {
+            // Redirect to history section
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
+            
+            const historyNavItem = document.querySelector('.nav-item[data-section="history"]');
+            if (historyNavItem) {
+                historyNavItem.classList.add('active');
+                document.getElementById('history').classList.add('active');
+                
+                // Reload booking history
+                loadBookingHistory(user.uid);
+            }
+        }, 1500);
+        
+    } catch (error) {
+        console.error('Error creating booking:', error);
+        showNotification('Error: ' + error.message, 'error');
+        
+        // Reset button state
+        const submitButton = e.target.querySelector('button[type="submit"]');
+        if (submitButton) {
+            submitButton.innerHTML = 'Complete Booking';
+            submitButton.disabled = false;
+        }
+    }
+}
+
+// Load booking history for user
+async function loadBookingHistory(userId) {
+    try {
+        console.log(`Loading booking history for user: ${userId}`);
+        const historySection = document.querySelector('#history .rental-history');
+        if (!historySection) {
+            console.error('History section element not found');
+            return;
+        }
+        
+        // Show loading state only if no data is already displayed
+        if (!historySection.querySelector('.bookings-table')) {
+            historySection.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-pulse"></i> Loading booking history...</div>';
+        }
+        
+        // Get the IPC renderer
+        const { ipcRenderer } = require('electron');
+        
+        // Fetch booking history from MongoDB API using IPC
+        console.log(`Sending API request to: /api/bookings/user/${userId}`);
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/user/${userId}`
+        });
+        
+        console.log('API response:', response);
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch booking history: ' + (response.error || 'Unknown error'));
+        }
+        
+        const bookings = response.data || [];
+        console.log(`Loaded ${bookings.length} bookings from MongoDB:`, bookings);
+        
+        // Cache bookings in localStorage for persistence across page reloads
+        localStorage.setItem('userBookings', JSON.stringify(bookings));
+        
+        if (bookings.length === 0) {
+            // Check localStorage for cached bookings first
+            const cachedBookings = JSON.parse(localStorage.getItem('userBookings') || '[]');
+            if (cachedBookings.length > 0) {
+                console.log('Using cached bookings from localStorage:', cachedBookings);
+                displayBookings(cachedBookings);
+                return;
+            }
+            
+            historySection.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-calendar-times"></i>
+                    <h3>No booking history yet</h3>
+                    <p>Your booking history will appear here once you've made a reservation.</p>
+                    <button class="book-now-redirect">Book a Vehicle Now</button>
+                </div>
+            `;
+            
+            // Add event listener to redirect button
+            const redirectButton = historySection.querySelector('.book-now-redirect');
+            if (redirectButton) {
+                redirectButton.addEventListener('click', () => {
+                    document.querySelector('.nav-item[data-section="book"]').click();
+                });
+            }
+            
+            // Also check Firebase for rentals
+            checkFirebaseRentals(userId);
+            
+            return;
+        }
+        
+        // Display the bookings
+        displayBookings(bookings);
+    } catch (error) {
+        console.error('Error loading booking history:', error);
+        
+        // Try to use cached bookings from localStorage
+        const cachedBookings = JSON.parse(localStorage.getItem('userBookings') || '[]');
+        if (cachedBookings.length > 0) {
+            console.log('Using cached bookings from localStorage due to error:', cachedBookings);
+            displayBookings(cachedBookings);
+            return;
+        }
+        
+        // Show error state
+        const historySection = document.querySelector('#history .rental-history');
+        if (historySection) {
+            historySection.innerHTML = `
+                <div class="error-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Could not load booking history</h3>
+                    <p>${error.message}</p>
+                    <button class="retry-btn">Retry</button>
+                </div>
+            `;
+            
+            // Add event listener to retry button
+            const retryButton = historySection.querySelector('.retry-btn');
+            if (retryButton) {
+                retryButton.addEventListener('click', () => {
+                    loadBookingHistory(userId);
+                });
+            }
+            
+            // Try to load from Firebase as fallback
+            checkFirebaseRentals(userId);
+        }
+    }
+}
+
+// Display bookings in the UI
+function displayBookings(bookings) {
+    const historySection = document.querySelector('#history .rental-history');
+    if (!historySection) return;
+    
+    // Create booking cards
+    historySection.innerHTML = '<div class="rental-history-table"><h3>Your Booking History</h3></div>';
+    const historyTable = document.createElement('table');
+    historyTable.className = 'bookings-table';
+    historyTable.innerHTML = `
+        <thead>
+            <tr>
+                <th>Vehicle</th>
+                <th>Dates</th>
+                <th>Location</th>
+                <th>Total</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="historyTableBody"></tbody>
+    `;
+    
+    historySection.querySelector('.rental-history-table').appendChild(historyTable);
+    const tableBody = document.getElementById('historyTableBody');
+    
+    bookings.forEach(booking => {
+        console.log('Creating row for booking:', booking);
+        const row = createBookingHistoryRow(booking);
+        tableBody.appendChild(row);
+    });
+}
+
+// Check Firebase for rentals as a fallback
+async function checkFirebaseRentals(userId) {
+    try {
+        console.log('Checking Firebase for rental history');
+        const userRef = firebase.firestore().collection('users').doc(userId);
+        const userDoc = await userRef.get();
+        
+        if (userDoc.exists) {
+            const userData = userDoc.data();
+            console.log('User data from Firebase:', userData);
+            
+            if (userData.rentals && Array.isArray(userData.rentals) && userData.rentals.length > 0) {
+                console.log(`Found ${userData.rentals.length} rentals in Firebase`);
+                
+                // If we got here, it means MongoDB had no bookings but Firebase has them
+                // Let's sync Firebase rentals to MongoDB
+                syncRentalsToMongoDB(userId, userData.rentals);
+            } else {
+                console.log('No rentals found in Firebase');
+            }
+        } else {
+            console.log('User document not found in Firebase');
+        }
+    } catch (error) {
+        console.error('Error checking Firebase rentals:', error);
+    }
+}
+
+// Sync Firebase rentals to MongoDB if needed
+async function syncRentalsToMongoDB(userId, rentals) {
+    try {
+        console.log('Syncing rentals from Firebase to MongoDB');
+        const { ipcRenderer } = require('electron');
+        
+        for (const rental of rentals) {
+            console.log('Processing rental for sync:', rental);
+            
+            // Check if this rental was already synced
+            const checkResponse = await ipcRenderer.invoke('api-call', {
+                method: 'GET',
+                url: `/api/bookings/check/${rental.id}`
+            });
+            
+            if (checkResponse.ok && checkResponse.data && checkResponse.data.exists) {
+                console.log(`Booking already exists in MongoDB with ID: ${rental.id}`);
+                continue;
+            }
+            
+            // Create a booking object from the rental
+            const bookingData = {
+                userId: userId,
+                vehicleId: rental.vehicleId,
+                vehicleName: rental.vehicleName,
+                pickupDate: rental.pickupDate.toDate().toISOString(),
+                returnDate: rental.returnDate.toDate().toISOString(),
+                totalAmount: rental.amount,
+                status: rental.status || 'confirmed',
+                synced: true,
+                firebaseId: rental.id
+            };
+            
+            console.log('Creating MongoDB booking from Firebase rental:', bookingData);
+            
+            const response = await ipcRenderer.invoke('api-call', {
+                method: 'POST',
+                url: '/api/bookings/sync',
+                body: JSON.stringify(bookingData)
+            });
+            
+            if (response.ok) {
+                console.log('Successfully synced rental to MongoDB:', response.data);
+            } else {
+                console.error('Failed to sync rental:', response.error || 'Unknown error');
+            }
+        }
+        
+        // Reload booking history after sync
+        loadBookingHistory(userId);
+    } catch (error) {
+        console.error('Error syncing rentals to MongoDB:', error);
+    }
+}
+
+// Create a booking history row
+function createBookingHistoryRow(booking) {
+    const row = document.createElement('tr');
+    
+    // Format dates
+    const pickupDate = new Date(booking.pickupDate).toLocaleDateString();
+    const returnDate = new Date(booking.returnDate).toLocaleDateString();
+    
+    // Determine status class
+    let statusClass = '';
+    switch (booking.status) {
+        case 'confirmed':
+            statusClass = 'confirmed';
+            break;
+        case 'active':
+            statusClass = 'active';
+            break;
+        case 'completed':
+            statusClass = 'completed';
+            break;
+        case 'cancelled':
+            statusClass = 'cancelled';
+            break;
+        default:
+            statusClass = 'pending';
+    }
+    
+    // Format vehicle name
+    const vehicleName = booking.vehicleName || 'Unknown Vehicle';
+    
+    // Format total
+    const totalAmount = booking.totalAmount 
+        ? `₹${booking.totalAmount.toLocaleString()}` 
+        : '₹0';
+    
+    row.innerHTML = `
+        <td>
+            <div class="vehicle-info">
+                <div class="rental-type-display">
+                    <i class="type-icon fas ${booking.vehicleType?.toLowerCase().includes('bike') ? 'fa-motorcycle' : 'fa-car'}"></i>
+                </div>
+                <div class="vehicle-name">${vehicleName}</div>
+            </div>
+        </td>
+        <td>${pickupDate} - ${returnDate}</td>
+        <td>${booking.pickupLocation || 'N/A'}</td>
+        <td>${totalAmount}</td>
+        <td><span class="status-badge status-${statusClass}">${booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}</span></td>
+        <td class="actions-cell">
+            ${booking.status === 'confirmed' ? 
+                `<button class="cancel-btn" data-booking-id="${booking._id}">Cancel</button>` : ''}
+            ${booking.status === 'completed' ? 
+                `<button class="review-btn" data-booking-id="${booking._id}" data-vehicle-id="${booking.vehicleId}">Review</button>` : ''}
+            <button class="details-btn" data-booking-id="${booking._id}">Details</button>
+        </td>
+    `;
+    
+    // Add event listeners
+    setTimeout(() => {
+        const cancelBtn = row.querySelector('.cancel-btn');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => handleCancelBooking(booking._id));
+        }
+        
+        const reviewBtn = row.querySelector('.review-btn');
+        if (reviewBtn) {
+            reviewBtn.addEventListener('click', () => handleAddReview(booking._id, booking.vehicleId));
+        }
+        
+        const detailsBtn = row.querySelector('.details-btn');
+        if (detailsBtn) {
+            detailsBtn.addEventListener('click', () => handleViewBookingDetails(booking));
+        }
+    }, 0);
+    
+    return row;
+}
+
+// Handle cancel booking
+async function handleCancelBooking(bookingId) {
+    if (!confirm('Are you sure you want to cancel this booking?')) {
+        return;
+    }
+    
+    try {
+        const { ipcRenderer } = require('electron');
+        
+        // Show cancellation in progress notification
+        showNotification('Cancelling your booking...', 'info');
+        
+        // Update booking status in MongoDB
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'PUT',
+            url: `/api/bookings/${bookingId}/status`,
+            body: JSON.stringify({ status: 'cancelled' })
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to cancel booking: ' + (response.error || 'Unknown error'));
+        }
+        
+        console.log('Booking cancelled successfully in MongoDB');
+        
+        // Update user's Firebase data to reflect the cancellation
+        const user = firebase.auth().currentUser;
+        if (user) {
+            // Get the booking details to update vehicle status
+            const bookingResponse = await ipcRenderer.invoke('api-call', {
+                method: 'GET',
+                url: `/api/bookings/${bookingId}`
+            });
+            
+            if (bookingResponse.ok && bookingResponse.data) {
+                const booking = bookingResponse.data;
+                
+                // Update vehicle status back to active
+                await ipcRenderer.invoke('api-call', {
+                    method: 'PUT',
+                    url: `/api/vehicles/${booking.vehicleId}/status`,
+                    body: JSON.stringify({ status: 'active' })
+                });
+                
+                // Update user data in Firebase
+                const userRef = firebase.firestore().collection('users').doc(user.uid);
+                await userRef.update({
+                    'activeRentals': firebase.firestore.FieldValue.increment(-1),
+                    'lastActivity': {
+                        type: 'cancellation',
+                        vehicleName: booking.vehicleName,
+                        date: firebase.firestore.Timestamp.now()
+                    }
+                });
+                
+                // Also update the rental in the user's rentals array
+                const userDoc = await userRef.get();
+                if (userDoc.exists) {
+                    const userData = userDoc.data();
+                    if (userData.rentals && Array.isArray(userData.rentals)) {
+                        const updatedRentals = userData.rentals.map(rental => {
+                            if (rental.id === bookingId) {
+                                return { ...rental, status: 'cancelled' };
+                            }
+                            return rental;
+                        });
+                        
+                        await userRef.update({ rentals: updatedRentals });
                     }
                 }
             }
             
-            // Check category (skip for bikes)
-            if (vehicleType === 'car' && selectedCategories.length > 0) {
-                const category = card.querySelector('.car-model').textContent.split(',')[0].trim();
-                if (!selectedCategories.some(cat => category.includes(cat))) {
-                    return;
-                }
-            }
+            // Show success message
+            showNotification('Booking cancelled successfully', 'success');
             
-            // If all filters pass, show the card
-            card.style.display = 'flex';
-        });
-        
-        // Update car count
-        updateCarCount();
-    }
-    
-    // Function to show all cars
-    function showAllCars() {
-        const carCards = document.querySelectorAll('.car-card:not(.promo-card)');
-        carCards.forEach(card => {
-            card.style.display = 'flex';
-        });
-        
-        // Update car count
-        updateCarCount();
-    }
-    
-    // Update car count display
-    function updateCarCount() {
-        const carCount = document.getElementById('car-count');
-        const visibleCards = document.querySelectorAll('.car-card:not(.promo-card):not([style*="display: none"])');
-        if (carCount) {
-            carCount.textContent = `${visibleCards.length} ${visibleCards.length === 1 ? 'vehicle' : 'vehicles'} to rent`;
+            // Reload booking history
+            loadBookingHistory(user.uid);
         }
+    } catch (error) {
+        console.error('Error cancelling booking:', error);
+        showNotification('Error cancelling booking: ' + error.message, 'error');
     }
-    
-    // Initialize car count
-    updateCarCount();
 }
 
-// Initialize dashboard
-window.addEventListener('DOMContentLoaded', () => {
-    console.log('Dashboard DOM content loaded - Using primary initialization only');
+// Handle add review
+async function handleAddReview(bookingId, vehicleId) {
+    // Create modal for review submission
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'reviewModal';
     
-    // IMPORTANT: The authentication and initialization is now handled by the auth state listener
-    // at the top of the file (lines 1-44). This secondary listener has been removed to prevent
-    // race conditions, automatic redirections, and flickering issues.
+    // Create modal content
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Leave a Review</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="review-form">
+                    <div class="rating-selector">
+                        <p>Rate your experience:</p>
+                        <div class="stars-container">
+                            <i class="far fa-star" data-rating="1"></i>
+                            <i class="far fa-star" data-rating="2"></i>
+                            <i class="far fa-star" data-rating="3"></i>
+                            <i class="far fa-star" data-rating="4"></i>
+                            <i class="far fa-star" data-rating="5"></i>
+                        </div>
+                        <input type="hidden" id="selectedRating" value="0">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="reviewComment">Your Review:</label>
+                        <textarea id="reviewComment" rows="5" placeholder="Share your experience with this vehicle..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="submitReviewBtn" class="submit-review-btn" disabled>Submit Review</button>
+                <button class="close-modal-btn">Cancel</button>
+            </div>
+        </div>
+    `;
     
-    // The following components are initialized by the primary listener when a user is authenticated:
-    // - Date display
-    // - Navigation handler
-    // - User data loading
-    // - Profile update handler
-    // - Password management
-    // - Review system
-    // - Rental history
-    // - Booking UI
-}); 
+    // Add modal to the document
+    document.body.appendChild(modal);
+    
+    // Show the modal
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+    
+    // Add event listeners
+    const closeButtons = modal.querySelectorAll('.close-modal, .close-modal-btn');
+    closeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        });
+    });
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        }
+    });
+    
+    // Handle star rating selection
+    const stars = modal.querySelectorAll('.stars-container i');
+    const selectedRating = modal.querySelector('#selectedRating');
+    const submitButton = modal.querySelector('#submitReviewBtn');
+    
+    stars.forEach(star => {
+        star.addEventListener('click', () => {
+            const rating = parseInt(star.getAttribute('data-rating'));
+            selectedRating.value = rating;
+            
+            // Update stars display
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.className = 'fas fa-star';
+                } else {
+                    s.className = 'far fa-star';
+                }
+            });
+            
+            // Enable submit button if a rating is selected
+            const commentField = modal.querySelector('#reviewComment');
+            if (commentField.value.trim().length > 0) {
+                submitButton.disabled = false;
+            }
+        });
+        
+        // Handle hover effects
+        star.addEventListener('mouseenter', () => {
+            const rating = parseInt(star.getAttribute('data-rating'));
+            
+            stars.forEach((s, index) => {
+                if (index < rating) {
+                    s.className = 'fas fa-star';
+                } else {
+                    s.className = 'far fa-star';
+                }
+            });
+        });
+    });
+    
+    // Reset to selected rating on mouse leave
+    const starsContainer = modal.querySelector('.stars-container');
+    starsContainer.addEventListener('mouseleave', () => {
+        const rating = parseInt(selectedRating.value);
+        
+        stars.forEach((s, index) => {
+            if (index < rating) {
+                s.className = 'fas fa-star';
+            } else {
+                s.className = 'far fa-star';
+            }
+        });
+    });
+    
+    // Enable/disable submit button based on comment field
+    const commentField = modal.querySelector('#reviewComment');
+    commentField.addEventListener('input', () => {
+        const rating = parseInt(selectedRating.value);
+        submitButton.disabled = !(rating > 0 && commentField.value.trim().length > 0);
+    });
+    
+    // Handle review submission
+    submitButton.addEventListener('click', async () => {
+        try {
+            const rating = parseInt(selectedRating.value);
+            const comment = commentField.value.trim();
+            
+            if (rating === 0) {
+                showNotification('Please select a rating before submitting.', 'error');
+                return;
+            }
+            
+            if (comment.length === 0) {
+                showNotification('Please enter a review comment before submitting.', 'error');
+                return;
+            }
+            
+            // Show loading state
+            submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            submitButton.disabled = true;
+            
+            // Get current user
+            const user = firebase.auth().currentUser;
+            if (!user) {
+                showNotification('You must be logged in to submit a review.', 'error');
+                return;
+            }
+            
+            // Prepare review data
+            const reviewData = {
+                userId: user.uid,
+                userName: user.displayName || user.email.split('@')[0],
+                bookingId: bookingId,
+                vehicleId: vehicleId,
+                rating: rating,
+                comment: comment,
+                createdAt: new Date().toISOString()
+            };
+            
+            // Submit review using IPC
+            const { ipcRenderer } = require('electron');
+            
+            const response = await ipcRenderer.invoke('api-call', {
+                method: 'POST',
+                url: '/api/reviews',
+                body: JSON.stringify(reviewData)
+            });
+            
+            if (!response.ok) {
+                throw new Error('Failed to submit review: ' + (response.error || 'Unknown error'));
+            }
+            
+            console.log('Review submitted successfully:', response.data);
+            
+            // Update booking status to indicate review was added
+            await ipcRenderer.invoke('api-call', {
+                method: 'PUT',
+                url: `/api/bookings/${bookingId}`,
+                body: JSON.stringify({ hasReview: true })
+            });
+            
+            // Also update rating in Firebase user data
+            await firebase.firestore().collection('users').doc(user.uid).update({
+                'lastActivity': {
+                    type: 'review',
+                    rating: rating,
+                    date: firebase.firestore.Timestamp.now()
+                }
+            });
+            
+            // Close modal
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                
+                // Show success notification
+                showNotification('Your review has been submitted successfully!', 'success');
+                
+                // Refresh booking history to update UI
+                loadBookingHistory(user.uid);
+            }, 300);
+            
+        } catch (error) {
+            console.error('Error submitting review:', error);
+            showNotification('Error submitting review: ' + error.message, 'error');
+            
+            // Reset button state
+            submitButton.innerHTML = 'Submit Review';
+            submitButton.disabled = false;
+        }
+    });
+}
+
+// Handle view booking details
+function handleViewBookingDetails(booking) {
+    // Create modal for booking details
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'bookingDetailsModal';
+    
+    // Format dates for display
+    const pickupDate = new Date(booking.pickupDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    const returnDate = new Date(booking.returnDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    // Format amount
+    const amount = `₹${booking.totalAmount?.toLocaleString() || '0'}`;
+    
+    // Format status
+    const statusClass = booking.status.toLowerCase();
+    const statusDisplay = booking.status.charAt(0).toUpperCase() + booking.status.slice(1);
+    
+    // Create modal content
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Booking Details</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="booking-id">
+                    <strong>Booking ID:</strong> ${booking._id || 'N/A'}
+                </div>
+                
+                <div class="booking-details-container">
+                    <div class="booking-vehicle-details">
+                        <div class="vehicle-icon-large">
+                            <i class="fas ${booking.vehicleType?.toLowerCase().includes('bike') ? 'fa-motorcycle' : 'fa-car'}"></i>
+                        </div>
+                        <h3>${booking.vehicleName || 'Unknown Vehicle'}</h3>
+                        <p class="vehicle-type">${booking.vehicleType || 'Standard'}</p>
+                    </div>
+                    
+                    <div class="booking-info-grid">
+                        <div class="info-item">
+                            <i class="fas fa-calendar-alt"></i>
+                            <div>
+                                <strong>Pickup Date</strong>
+                                <p>${pickupDate}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <i class="fas fa-calendar-check"></i>
+                            <div>
+                                <strong>Return Date</strong>
+                                <p>${returnDate}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div>
+                                <strong>Location</strong>
+                                <p>${booking.pickupLocation || 'Not specified'}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <i class="fas fa-clock"></i>
+                            <div>
+                                <strong>Duration</strong>
+                                <p>${booking.days || '1'} day(s)</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="price-breakdown">
+                        <h4>Price Details</h4>
+                        <div class="price-item">
+                            <span>Daily Rate:</span>
+                            <span>₹${booking.dailyRate?.toLocaleString() || '0'}</span>
+                        </div>
+                        <div class="price-item">
+                            <span>Duration:</span>
+                            <span>${booking.days || '1'} day(s)</span>
+                        </div>
+                        <div class="price-item total">
+                            <span>Total Amount:</span>
+                            <span>${amount}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="booking-status-large">
+                        <span class="status-badge status-${statusClass}">${statusDisplay}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                ${booking.status === 'confirmed' ? `<button id="cancelBookingBtn" class="cancel-booking-btn">Cancel Booking</button>` : ''}
+                <button class="close-modal-btn">Close</button>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to the document
+    document.body.appendChild(modal);
+    
+    // Show the modal
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+    
+    // Add event listeners
+    const closeButtons = modal.querySelectorAll('.close-modal, .close-modal-btn');
+    closeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        });
+    });
+    
+    // Add cancel button event listener
+    const cancelButton = modal.querySelector('#cancelBookingBtn');
+    if (cancelButton) {
+        cancelButton.addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                handleCancelBooking(booking._id);
+            }, 300);
+        });
+    }
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        }
+    });
+}
+
+// Get current user
+function getCurrentUser() {
+    return firebase.auth().currentUser;
+}

@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Special Offers - OnGo Rentals</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-gradient"></div>
+    <div class="animated-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+        <div class="shape shape-4"></div>
+    </div>
+    
+    <div class="container">
+        <nav class="navbar">
+            <div class="logo">
+                <div class="logo-icon">
+                    <span class="circle">
+                        <i class="fas fa-car-side"></i>
+                    </span>
+                    <span class="text">OnGo</span>
+                </div>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">Home</a>
+                <a href="about.html">About</a>
+                <a href="offers.html" class="active">Offers</a>
+                <a href="contact.html">Contact</a>
+            </div>
+            <button class="login-btn" onclick="showLoginForm('agent')">
+                <i class="fas fa-user-tie"></i> Login As Agent
+            </button>
+        </nav>
+
+        <div class="offers-section">
+            <h1>Special Offers</h1>
+            <p class="subtitle">Exclusive deals for our valued customers</p>
+            
+            <div class="offers-grid">
+                <div class="offer-card">
+                    <div class="offer-icon">
+                        <i class="fas fa-percent"></i>
+                    </div>
+                    <h2>First Ride Special</h2>
+                    <p>Flat 20% Off on your first ride with OnGo Rentals</p>
+                    <button class="offer-btn">New Users</button>
+                </div>
+
+                <div class="offer-card">
+                    <div class="offer-icon">
+                        <i class="fas fa-calendar"></i>
+                    </div>
+                    <h2>Weekend Special</h2>
+                    <p>Rent for 2 days, Get 1 Day Free on weekend bookings</p>
+                    <button class="offer-btn">Weekend</button>
+                </div>
+
+                <div class="offer-card">
+                    <div class="offer-icon">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <h2>Loyalty Rewards</h2>
+                    <p>Earn points on every rental and redeem for free rides</p>
+                    <button class="offer-btn">Regular</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html> 

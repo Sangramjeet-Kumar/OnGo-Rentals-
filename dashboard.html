@@ -140,370 +140,96 @@
             <!-- Book Now Section -->
             <section id="book" class="content-section">
                 <div class="section-header">
-                    <h1>Book a Vehicle</h1>
-                    <div class="view-all">
-                        <span id="car-count">24 cars to rent</span>
-                        <a href="#">View all</a>
-                    </div>
+                    <h2>Book a Vehicle</h2>
+                    <div class="section-divider"></div>
                 </div>
                 
-                <div class="booking-container">
-                    <!-- Filters panel -->
-                    <div class="filters-panel">
-                        <div class="filters-header">
-                            <h2>Filters</h2>
-                            <button class="reset-btn">Reset</button>
-                        </div>
-
-                        <div class="filter-group">
-                            <h3>Vehicle Type</h3>
-                            <div class="vehicle-type-toggle">
-                                <button class="vehicle-btn active" data-type="car">
-                                    <i class="fas fa-car"></i>
-                                    <span>Cars</span>
-                                </button>
-                                <button class="vehicle-btn" data-type="bike">
-                                    <i class="fas fa-motorcycle"></i>
-                                    <span>Bikes</span>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="filter-group car-category">
-                            <h3>Car Category</h3>
-                            <div class="category-options">
-                                <label class="category-item">
-                                    <input type="checkbox" checked>
-                                    <span class="checkmark"></span>
-                                    <span>Mini</span>
-                                </label>
-                                <label class="category-item">
-                                    <input type="checkbox" checked>
-                                    <span class="checkmark"></span>
-                                    <span>Sedan</span>
-                                </label>
-                                <label class="category-item">
-                                    <input type="checkbox" checked>
-                                    <span class="checkmark"></span>
-                                    <span>SUV</span>
-                                </label>
-                                <label class="category-item">
-                                    <input type="checkbox" checked>
-                                    <span class="checkmark"></span>
-                                    <span>Family</span>
-                                </label>
-                                <label class="category-item">
-                                    <input type="checkbox">
-                                    <span class="checkmark"></span>
-                                    <span>Luxury</span>
-                                </label>
-                                <label class="category-item">
-                                    <input type="checkbox">
-                                    <span class="checkmark"></span>
-                                    <span>Electric</span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <div class="filter-dropdown">
-                                <select id="carBrand">
-                                    <option>All Brands</option>
-                                    <option>Maruti Suzuki</option>
-                                    <option>Tata Motors</option>
-                                    <option>Mahindra</option>
-                                    <option>Hyundai</option>
-                                    <option>Honda</option>
-                                    <option>Toyota</option>
-                                    <option>Kia</option>
-                                </select>
-                            </div>
-                            
-                            <div class="filter-dropdown">
-                                <select id="carModel">
-                                    <option>Select Model</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <h3>Price range per hour</h3>
-                            <div class="price-range">
-                                <div class="price-inputs">
-                                    <div class="price-value">₹200</div>
-                                    <div class="price-value">₹2,000</div>
-                                </div>
-                                <div class="range-slider">
-                                    <input type="range" min="200" max="2000" value="200" class="range" id="priceMin">
-                                    <input type="range" min="200" max="2000" value="2000" class="range" id="priceMax">
-                                    <div class="slider-track"></div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <h3>Pickup Schedule</h3>
-                            <div class="date-picker">
-                                <div class="date-field">
-                                    <label>Pickup Date</label>
-                                    <div class="input-with-icon">
-                                        <i class="fas fa-calendar"></i>
-                                        <input type="date" id="pickupDate" min="">
-                                    </div>
-                                </div>
-                                <div class="date-field">
-                                    <label>Return Date</label>
-                                    <div class="input-with-icon">
-                                        <i class="fas fa-calendar-check"></i>
-                                        <input type="date" id="returnDate" min="">
-                                    </div>
-                                </div>
-                                <div class="time-field">
-                                    <label>Pickup Time</label>
-                                    <div class="input-with-icon">
-                                        <i class="fas fa-clock"></i>
-                                        <input type="time" id="pickupTime" value="10:00">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <h3>Color</h3>
-                            <div class="color-options">
-                                <label class="color-item">
-                                    <input type="radio" name="color" value="black" checked>
-                                    <span class="color-circle black"></span>
-                                    <span>Black</span>
-                                </label>
-                                <label class="color-item">
-                                    <input type="radio" name="color" value="white">
-                                    <span class="color-circle white"></span>
-                                    <span>White</span>
-                                </label>
-                                <label class="color-item">
-                                    <input type="radio" name="color" value="silver">
-                                    <span class="color-circle silver"></span>
-                                    <span>Silver</span>
-                                </label>
-                                <label class="color-item">
-                                    <input type="radio" name="color" value="red">
-                                    <span class="color-circle red"></span>
-                                    <span>Red</span>
-                                </label>
-                                <label class="color-item">
-                                    <input type="radio" name="color" value="blue">
-                                    <span class="color-circle blue"></span>
-                                    <span>Blue</span>
-                                </label>
-                                <label class="color-item">
-                                    <input type="radio" name="color" value="brown">
-                                    <span class="color-circle brown"></span>
-                                    <span>Brown</span>
-                                </label>
-                            </div>
-                            <a href="#" class="view-more">All colors <i class="fas fa-chevron-down"></i></a>
-                        </div>
-
-                        <div class="filter-group">
-                            <div class="toggle-option">
-                                <label class="switch">
-                                    <input type="checkbox">
-                                    <span class="slider"></span>
-                                </label>
-                                <span>Available now only</span>
-                            </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <h3>Rental type</h3>
-                            <div class="button-toggle">
-                                <button class="toggle-btn active">Any</button>
-                                <button class="toggle-btn">Per day</button>
-                                <button class="toggle-btn">Per hour</button>
-                            </div>
-                        </div>
-
-                        <div class="filter-group">
-                            <h3>Car insurance</h3>
-                            <div class="checkbox-group">
-                                <label class="checkbox-item">
-                                    <input type="checkbox" checked>
-                                    <span class="checkmark"></span>
-                                    <span>Collision Damage Waiver</span>
-                                </label>
-                                <label class="checkbox-item">
-                                    <input type="checkbox">
-                                    <span class="checkmark"></span>
-                                    <span>Roadside Plus</span>
-                                </label>
-                            </div>
-                            <a href="#" class="view-more">All insurance <i class="fas fa-chevron-down"></i></a>
-                        </div>
-
-                        <button class="apply-filters-btn">
-                            <i class="fas fa-filter"></i>
-                            Apply Filters
+                <!-- Vehicle browsing section -->
+                <div id="vehicles-section" class="vehicles-container">
+                    <!-- Content will be dynamically loaded here -->
+                </div>
+                
+                <!-- Booking form section (initially hidden) -->
+                <div id="booking-form-section" class="booking-form-container" style="display:none;">
+                    <div class="booking-header">
+                        <button id="backToVehicles" class="back-btn">
+                            <i class="fas fa-arrow-left"></i> Back to Vehicles
                         </button>
+                        <h2>Book <span id="selectedVehicleName">Vehicle</span></h2>
                     </div>
-
-                    <!-- Car listings -->
-                    <div class="car-listings">
-                        <div class="car-grid">
-                            <!-- Car 1 -->
-                            <div class="car-card">
-                                <div class="car-status">
-                                    <span class="status-pill new">New</span>
-                                    <span class="status-pill available">Available</span>
-                                </div>
-                                <div class="car-favorite">
-                                    <button class="favorite-btn"><i class="far fa-heart"></i></button>
-                                </div>
-                                <div class="car-image">
-                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/123885/fronx-exterior-right-front-three-quarter-5.jpeg" alt="Maruti Suzuki Fronx">
-                                </div>
-                                <div class="car-info">
-                                    <div class="car-header">
-                                        <h3>Maruti Suzuki | Fronx</h3>
-                                        <p class="car-model">Mini SUV, 2023</p>
-                                    </div>
-                                    <div class="car-features">
-                                        <span><i class="fas fa-gas-pump"></i> Petrol</span>
-                                        <span><i class="fas fa-cog"></i> Manual</span>
-                                        <span><i class="fas fa-user"></i> 5 Seats</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <p>₹350 <span>/hour</span></p>
-                                    </div>
-                                </div>
-                                <button class="book-now-btn">Book Now</button>
-                            </div>
-                            
-                            <!-- Car 2 -->
-                            <div class="car-card">
-                                <div class="car-status">
-                                    <span class="status-pill booked">Booked till 10 PM</span>
-                                </div>
-                                <div class="car-favorite">
-                                    <button class="favorite-btn active"><i class="fas fa-heart"></i></button>
-                                </div>
-                                <div class="car-image">
-                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/115777/2022-scorpio-n-exterior-right-front-three-quarter-15.jpeg" alt="Mahindra Scorpio">
-                                </div>
-                                <div class="car-info">
-                                    <div class="car-header">
-                                        <h3>Mahindra | Scorpio-N</h3>
-                                        <p class="car-model">SUV, 2023</p>
-                                    </div>
-                                    <div class="car-features">
-                                        <span><i class="fas fa-gas-pump"></i> Diesel</span>
-                                        <span><i class="fas fa-cog"></i> Automatic</span>
-                                        <span><i class="fas fa-user"></i> 7 Seats</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <p>₹600 <span>/hour</span></p>
-                                    </div>
-                                </div>
-                                <button class="book-now-btn" disabled>Book Now</button>
-                            </div>
-                            
-                            <!-- Car 3 -->
-                            <div class="car-card">
-                                <div class="car-status">
-                                    <span class="status-pill available">Available</span>
-                                </div>
-                                <div class="car-favorite">
-                                    <button class="favorite-btn"><i class="far fa-heart"></i></button>
-                                </div>
-                                <div class="car-image">
-                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/42355/tata-nexon-right-front-three-quarter9.jpeg" alt="Tata Nexon">
-                                </div>
-                                <div class="car-info">
-                                    <div class="car-header">
-                                        <h3>Tata | Nexon</h3>
-                                        <p class="car-model">Compact SUV, 2023</p>
-                                    </div>
-                                    <div class="car-features">
-                                        <span><i class="fas fa-gas-pump"></i> Petrol</span>
-                                        <span><i class="fas fa-cog"></i> Manual</span>
-                                        <span><i class="fas fa-user"></i> 5 Seats</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <p>₹400 <span>/hour</span></p>
-                                    </div>
-                                </div>
-                                <button class="book-now-btn">Book Now</button>
-                            </div>
-                            
-                            <!-- Car 4 -->
-                            <div class="car-card promo-card">
-                                <div class="promo-content">
-                                    <h3>Special Offer!</h3>
-                                    <p>Get 15% off on weekend bookings. Use code: WEEKEND15</p>
-                                    <button class="read-more-btn">View Details</button>
-                                </div>
-                                <div class="promo-icon">
-                                    <img src="https://cdn-icons-png.flaticon.com/512/2331/2331966.png" alt="Offer">
-                                </div>
-                            </div>
-                            
-                            <!-- Car 5 -->
-                            <div class="car-card">
-                                <div class="car-status">
-                                    <span class="status-pill booked">Booked till 5 PM</span>
-                                </div>
-                                <div class="car-favorite">
-                                    <button class="favorite-btn"><i class="far fa-heart"></i></button>
-                                </div>
-                                <div class="car-image">
-                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/130583/seltos-facelift-exterior-right-front-three-quarter-3.jpeg" alt="Kia Seltos">
-                                </div>
-                                <div class="car-info">
-                                    <div class="car-header">
-                                        <h3>Kia | Seltos</h3>
-                                        <p class="car-model">SUV, 2023</p>
-                                    </div>
-                                    <div class="car-features">
-                                        <span><i class="fas fa-gas-pump"></i> Petrol</span>
-                                        <span><i class="fas fa-cog"></i> Automatic</span>
-                                        <span><i class="fas fa-user"></i> 5 Seats</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <p>₹550 <span>/hour</span></p>
-                                    </div>
-                                </div>
-                                <button class="book-now-btn" disabled>Book Now</button>
-                            </div>
-                            
-                            <!-- Car 6 -->
-                            <div class="car-card">
-                                <div class="car-status">
-                                    <span class="status-pill available">Available</span>
-                                </div>
-                                <div class="car-favorite">
-                                    <button class="favorite-btn active"><i class="fas fa-heart"></i></button>
-                                </div>
-                                <div class="car-image">
-                                    <img src="https://imgd.aeplcdn.com/664x374/n/cw/ec/26918/city-4th-generation-exterior-right-front-three-quarter.jpeg" alt="Honda City">
-                                </div>
-                                <div class="car-info">
-                                    <div class="car-header">
-                                        <h3>Honda | City</h3>
-                                        <p class="car-model">Sedan, 2023</p>
-                                    </div>
-                                    <div class="car-features">
-                                        <span><i class="fas fa-gas-pump"></i> Petrol</span>
-                                        <span><i class="fas fa-cog"></i> CVT</span>
-                                        <span><i class="fas fa-user"></i> 5 Seats</span>
-                                    </div>
-                                    <div class="car-price">
-                                        <p>₹450 <span>/hour</span></p>
-                                    </div>
-                                </div>
-                                <button class="book-now-btn">Book Now</button>
+                    
+                    <form class="booking-form" id="bookingForm">
+                        <input type="hidden" id="selectedVehicleId">
+                        
+                        <div class="form-row">
+                        <div class="form-group">
+                                <label for="pickupDate">Pickup Date</label>
+                            <div class="input-with-icon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <input type="date" id="pickupDate" required>
                             </div>
                         </div>
-                    </div>
+                        
+                        <div class="form-group">
+                                <label for="returnDate">Return Date</label>
+                            <div class="input-with-icon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    <input type="date" id="returnDate" required>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                        <div class="form-group">
+                                <label for="location">Pickup/Return Location</label>
+                            <div class="input-with-icon">
+                                <i class="fas fa-map-marker-alt"></i>
+                                    <select id="location" required>
+                                        <option value="Delhi Central">Delhi Central</option>
+                                        <option value="Mumbai Downtown">Mumbai Downtown</option>
+                                        <option value="Bangalore Tech Park">Bangalore Tech Park</option>
+                                        <option value="Chennai Beachside">Chennai Beachside</option>
+                                        <option value="Hyderabad Jubilee">Hyderabad Jubilee</option>
+                                </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-divider"></div>
+                        
+                        <div class="summary-section">
+                            <h3>Booking Summary</h3>
+                            
+                            <div class="summary-item">
+                                <span class="item-label">Vehicle Type:</span>
+                                <span class="item-value" id="vehicleTypeDisplay">-</span>
+                            </div>
+                            
+                            <div class="summary-item">
+                                <span class="item-label">Daily Rate:</span>
+                                <span class="item-value" id="dailyRateDisplay">-</span>
+                            </div>
+                            
+                            <div class="summary-item">
+                                <span class="item-label">Number of Days:</span>
+                                <span class="item-value" id="daysCount">-</span>
+                            </div>
+                            
+                            <div class="summary-item total">
+                                <span class="item-label">Total Amount:</span>
+                                <span class="item-value" id="totalAmount">-</span>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                            <div class="checkbox">
+                                <input type="checkbox" id="termsCheckbox" required>
+                                <label for="termsCheckbox">I agree to the <a href="#">terms and conditions</a></label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="submit-btn">Complete Booking</button>
+                    </form>
                 </div>
             </section>
             
@@ -513,67 +239,8 @@
                     <h1>Rental History</h1>
                 </div>
                 
-                <div class="history-filters">
-                    <div class="search-bar">
-                        <i class="fas fa-search"></i>
-                        <input type="text" id="historySearch" placeholder="Search by vehicle, location...">
-                    </div>
-                    
-                    <div class="filter-options">
-                        <select id="historyFilter">
-                            <option value="all">All Rentals</option>
-                            <option value="active">Active</option>
-                            <option value="completed">Completed</option>
-                            <option value="pending">Pending</option>
-                            <option value="cancelled">Cancelled</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="history-table-container">
-                    <table class="history-table">
-                        <thead>
-                            <tr>
-                                <th>Vehicle</th>
-                                <th>Pickup Date</th>
-                                <th>Return Date</th>
-                                <th>Location</th>
-                                <th>Total</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="historyTableBody">
-                            <!-- This will be populated dynamically -->
-                            <!-- Example row:
-                            <tr>
-                                <td>Premium SUV</td>
-                                <td>May 10, 2023</td>
-                                <td>May 15, 2023</td>
-                                <td>New York</td>
-                                <td>$375.00</td>
-                                <td><span class="status-badge status-completed">Completed</span></td>
-                            </tr>
-                            <tr>
-                                <td>Economy Sedan</td>
-                                <td>Jun 5, 2023</td>
-                                <td>Jun 7, 2023</td>
-                                <td>Chicago</td>
-                                <td>$90.00</td>
-                                <td><span class="status-badge status-active">Active</span></td>
-                            </tr>
-                            -->
-                        </tbody>
-                    </table>
-                    
-                    <!-- Empty state that will show when no rentals are found -->
-                    <div id="emptyHistoryContainer" class="empty-history-container" style="display: none;">
-                        <i class="fas fa-car-side"></i>
-                        <p>You don't have any rental history yet</p>
-                        <a href="#book" class="book-now-btn" id="bookFromHistoryBtn">
-                            <i class="fas fa-calendar-plus"></i>
-                            Book Your First Rental
-                        </a>
-                    </div>
+                <div class="rental-history">
+                    <!-- Booking history will be populated here -->
                 </div>
             </section>
             
