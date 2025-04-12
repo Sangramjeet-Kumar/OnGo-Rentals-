@@ -124,15 +124,16 @@
                 <div class="recent-activity">
                     <h2>Recent Activity</h2>
                     <div class="activity-list" id="recentActivityList">
-                        <div class="activity-item">
+                        <!-- Loading state -->
+                        <div class="activity-item loading">
                             <div class="activity-icon">
-                                <i class="fas fa-car"></i>
+                                <i class="fas fa-spinner fa-pulse"></i>
                             </div>
                             <div class="activity-details">
-                                <h4>No recent activity</h4>
-                                <p>Book a car to get started!</p>
+                                <h4>Loading recent activities...</h4>
                             </div>
                         </div>
+                        <!-- Activity items will be dynamically loaded here -->
                     </div>
                 </div>
             </section>

@@ -612,7 +612,7 @@ async function loadUserData() {
         
         if (userDoc.exists) {
             const userData = userDoc.data();
-                console.log('User data loaded:', userData);
+            console.log('User data loaded:', userData);
                 
             // Update user name with data from Firestore if available
             if (userData.name && userNameElement) {
@@ -622,15 +622,31 @@ async function loadUserData() {
             // Update profile fields if they exist
             updateProfileFields(userData);
             
-            // Update user metrics if they exist
+            // Update user metrics (this will now fetch bookings and update dashboard)
             updateUserMetrics(userData);
+            
+            // Pre-fetch booking history to ensure it's available (this speeds up dashboard loading)
+            const dashboardSection = document.querySelector('#dashboard');
+            if (dashboardSection && dashboardSection.classList.contains('active')) {
+                loadBookingHistory(user.uid);
+            }
         } else {
             console.warn('User document does not exist in Firestore');
             showNotification('User profile could not be loaded completely', 'warning');
+            
+            // Still try to update metrics even if user doc doesn't exist
+            updateUserMetrics({});
         }
     } catch (error) {
         console.error('Error loading user data:', error);
         showNotification('Failed to load user profile data', 'error');
+        
+        // Still try to update metrics even if there was an error
+        try {
+            updateUserMetrics({});
+        } catch (metricError) {
+            console.error('Failed to update metrics after user data error:', metricError);
+        }
     }
 }
 
@@ -663,29 +679,559 @@ function updateProfileFields(userData) {
 
 // Update user metrics in the dashboard
 function updateUserMetrics(userData) {
-    // Active rentals
-    const activeRentalsElement = document.getElementById('activeRentals');
-    if (activeRentalsElement && userData.activeRentals !== undefined) {
-        activeRentalsElement.textContent = userData.activeRentals || '0';
-                }
-                
-    // Total trips
-    const totalTripsElement = document.getElementById('totalTrips');
-    if (totalTripsElement && userData.totalTrips !== undefined) {
-        totalTripsElement.textContent = userData.totalTrips || '0';
-                }
-                
-    // Loyalty points
-    const loyaltyPointsElement = document.getElementById('loyaltyPoints');
-    if (loyaltyPointsElement && userData.loyaltyPoints !== undefined) {
-        loyaltyPointsElement.textContent = userData.loyaltyPoints || '0';
-                }
-                
-    // User rating
-    const userRatingElement = document.getElementById('userRating');
-    if (userRatingElement && userData.rating !== undefined) {
-        userRatingElement.textContent = userData.rating || '5.0';
+    // Show loading state in the metrics boxes
+    const metricBoxes = document.querySelectorAll('#activeRentals, #totalTrips, #loyaltyPoints, #userRating');
+    metricBoxes.forEach(box => {
+        box.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
+    });
+
+    // Get the current user
+    const user = getCurrentUser();
+    if (!user) return;
+    
+    // Get bookings to calculate actual metrics
+    const loadBookingsPromise = new Promise((resolve) => {
+        // Try to use the booking history API
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/user/${user.uid}`
+        })
+        .then(response => {
+            if (response.ok && response.data) {
+                resolve(response.data);
+            } else {
+                // If API fails, try to get from localStorage
+                const cachedBookings = JSON.parse(localStorage.getItem('userBookings') || '[]');
+                resolve(cachedBookings);
+            }
+        })
+        .catch(() => {
+            // If everything fails, use Firebase data
+            const cachedBookings = JSON.parse(localStorage.getItem('userBookings') || '[]');
+            resolve(cachedBookings);
+        });
+    });
+    
+    loadBookingsPromise.then(bookings => {
+        // Calculate active rentals (status = 'confirmed' or 'active')
+        const activeRentals = bookings.filter(booking => 
+            booking.status === 'confirmed' || booking.status === 'active'
+        ).length;
+        
+        // Calculate total trips (all bookings)
+        const totalTrips = bookings.length;
+        
+        // Calculate loyalty points (completed bookings)
+        const loyaltyPoints = bookings.filter(booking => 
+            booking.status === 'completed'
+        ).length;
+        
+        // Calculate average rating if available
+        let rating = '5.0';
+        const userReviews = bookings.filter(booking => booking.userRating);
+        if (userReviews.length > 0) {
+            const totalRating = userReviews.reduce((sum, booking) => sum + booking.userRating, 0);
+            rating = (totalRating / userReviews.length).toFixed(1);
+        }
+        
+        // Update metrics in Firebase with the latest values if they differ
+        if (activeRentals !== userData.activeRentals || 
+            totalTrips !== userData.totalTrips || 
+            loyaltyPoints !== userData.loyaltyPoints) {
+            
+            firebase.firestore().collection('users').doc(user.uid).update({
+                activeRentals: activeRentals,
+                totalTrips: totalTrips,
+                loyaltyPoints: loyaltyPoints,
+                rating: rating
+            }).catch(error => console.error('Error updating user metrics in Firebase:', error));
+        }
+        
+        // Update the dashboard UI
+        const activeRentalsElement = document.getElementById('activeRentals');
+        if (activeRentalsElement) {
+            activeRentalsElement.textContent = activeRentals;
+        }
+        
+        const totalTripsElement = document.getElementById('totalTrips');
+        if (totalTripsElement) {
+            totalTripsElement.textContent = totalTrips;
+        }
+        
+        const loyaltyPointsElement = document.getElementById('loyaltyPoints');
+        if (loyaltyPointsElement) {
+            loyaltyPointsElement.textContent = loyaltyPoints;
+        }
+        
+        const userRatingElement = document.getElementById('userRating');
+        if (userRatingElement) {
+            userRatingElement.textContent = rating;
+        }
+        
+        // Load recent activities based on bookings
+        loadRecentActivities(bookings);
+    });
+}
+
+// Load recent activities (last 15 days)
+function loadRecentActivities(bookings) {
+    const recentActivityList = document.getElementById('recentActivityList');
+    if (!recentActivityList) return;
+    
+    // Add activity styles to the document if not already added
+    if (!document.getElementById('activity-custom-styles')) {
+        const activityStyles = document.createElement('style');
+        activityStyles.id = 'activity-custom-styles';
+        activityStyles.textContent = `
+            .recent-activity {
+                background: #fff;
+                border-radius: 12px;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+                padding: 20px;
+                margin-top: 20px;
+            }
+            
+            .recent-activity h2 {
+                font-size: 20px;
+                margin-bottom: 15px;
+                color: #333;
+                padding-bottom: 10px;
+                border-bottom: 1px solid #eaeaea;
+            }
+            
+            .activity-list {
+                max-height: 400px;
+                overflow-y: auto;
+                padding-right: 5px;
+            }
+            
+            .activity-list::-webkit-scrollbar {
+                width: 6px;
+            }
+            
+            .activity-list::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 10px;
+            }
+            
+            .activity-list::-webkit-scrollbar-thumb {
+                background: #c1c1c1;
+                border-radius: 10px;
+            }
+            
+            .activity-list::-webkit-scrollbar-thumb:hover {
+                background: #a8a8a8;
+            }
+            
+            .activity-item {
+                display: flex;
+                align-items: flex-start;
+                padding: 16px;
+                border-radius: 10px;
+                margin-bottom: 10px;
+                background-color: #f8f9fa;
+                transition: transform 0.2s, box-shadow 0.2s;
+                border-left: 4px solid transparent;
+            }
+            
+            .activity-item:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            }
+            
+            .activity-item.status-confirmed {
+                border-left-color: #1976d2;
+                background-color: #f5faff;
+            }
+            
+            .activity-item.status-active {
+                border-left-color: #388e3c;
+                background-color: #f5fff7;
+            }
+            
+            .activity-item.status-completed {
+                border-left-color: #00897b;
+                background-color: #f5fffd;
+            }
+            
+            .activity-item.status-cancelled {
+                border-left-color: #d32f2f;
+                background-color: #fff5f5;
+            }
+            
+            .activity-item.loading {
+                justify-content: center;
+                padding: 30px;
+                background-color: #f8f8f8;
+                border-left: none;
+            }
+            
+            .activity-item.empty {
+                justify-content: center;
+                padding: 30px;
+                background-color: #f8f8f8;
+                border-left: none;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+            }
+            
+            .activity-icon {
+                width: 42px;
+                height: 42px;
+                border-radius: 50%;
+                background-color: #e3f2fd;
+                color: #1976d2;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin-right: 15px;
+                flex-shrink: 0;
+            }
+            
+            .activity-icon i {
+                font-size: 18px;
+            }
+            
+            .activity-details {
+                flex: 1;
+            }
+            
+            .activity-details h4 {
+                margin: 0 0 5px;
+                font-size: 16px;
+                font-weight: 600;
+                color: #333;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+            }
+            
+            .activity-details p {
+                margin: 0 0 8px;
+                font-size: 14px;
+                color: #555;
+            }
+            
+            .activity-time {
+                display: block;
+                font-size: 12px;
+                color: #888;
+            }
+            
+            .activity-date-badge {
+                background-color: #f0f0f0;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 500;
+                color: #555;
+                margin-left: auto;
+            }
+            
+            .activity-item-divider {
+                height: 1px;
+                background-color: #eaeaea;
+                margin: 8px 0;
+            }
+            
+            .activity-vehicle-name {
+                font-weight: 500;
+                color: #333;
+            }
+            
+            .activity-trip-dates {
+                display: flex;
+                align-items: center;
+                margin-top: 5px;
+            }
+            
+            .activity-trip-date {
+                font-size: 13px;
+                color: #666;
+                display: flex;
+                align-items: center;
+            }
+            
+            .activity-trip-date i {
+                font-size: 12px;
+                margin-right: 4px;
+            }
+            
+            .activity-trip-separator {
+                margin: 0 8px;
+                color: #ccc;
+            }
+            
+            .activity-status {
+                font-size: 12px;
+                font-weight: 500;
+                padding: 2px 8px;
+                border-radius: 12px;
+                display: inline-block;
+                margin-top: 5px;
+            }
+            
+            .activity-status.status-confirmed {
+                background-color: #e3f2fd;
+                color: #1976d2;
+            }
+            
+            .activity-status.status-active {
+                background-color: #e8f5e9;
+                color: #388e3c;
+            }
+            
+            .activity-status.status-completed {
+                background-color: #e0f2f1;
+                color: #00897b;
+            }
+            
+            .activity-status.status-cancelled {
+                background-color: #ffebee;
+                color: #d32f2f;
+            }
+        `;
+        document.head.appendChild(activityStyles);
     }
+    
+    // Show loading state
+    recentActivityList.innerHTML = '<div class="activity-item loading"><div class="activity-icon"><i class="fas fa-spinner fa-pulse"></i></div><div class="activity-details"><h4>Loading activities...</h4></div></div>';
+    
+    // Filter bookings from the last 15 days
+    const fifteenDaysAgo = new Date();
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+    
+    const recentBookings = bookings.filter(booking => {
+        const bookingDate = new Date(booking.createdAt || booking.pickupDate);
+        return bookingDate >= fifteenDaysAgo;
+    });
+    
+    // Sort by date (newest first)
+    recentBookings.sort((a, b) => {
+        const dateA = new Date(a.createdAt || a.pickupDate);
+        const dateB = new Date(b.createdAt || b.pickupDate);
+        return dateB - dateA;
+    });
+    
+    // Show no activity message if no recent bookings
+    if (recentBookings.length === 0) {
+        recentActivityList.innerHTML = `
+            <div class="activity-item empty">
+                <div class="activity-icon">
+                    <i class="fas fa-calendar-times"></i>
+                </div>
+                <h4>No recent activity</h4>
+                <p>Book a car to get started!</p>
+                <button class="btn btn-primary mt-3" onclick="document.querySelector('.nav-item[data-section=\"book\"]').click()">
+                    <i class="fas fa-car"></i> Book Now
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    // Clear list
+    recentActivityList.innerHTML = '';
+    
+    // Group by date
+    const groupedByDate = {};
+    recentBookings.forEach(booking => {
+        const activityDate = new Date(booking.createdAt || booking.pickupDate);
+        const dateKey = activityDate.toISOString().split('T')[0];
+        
+        if (!groupedByDate[dateKey]) {
+            groupedByDate[dateKey] = [];
+        }
+        
+        groupedByDate[dateKey].push(booking);
+    });
+    
+    // Create date headers and add activities
+    Object.keys(groupedByDate).sort().reverse().forEach(dateKey => {
+        const dateActivities = groupedByDate[dateKey];
+        const date = new Date(dateKey);
+        
+        // Format date for display
+        const formattedDate = new Intl.DateTimeFormat('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        }).format(date);
+        
+        // Add date header if not showing one date per item
+        // const dateHeader = document.createElement('div');
+        // dateHeader.className = 'activity-date-header';
+        // dateHeader.innerHTML = `<span>${formattedDate}</span>`;
+        // recentActivityList.appendChild(dateHeader);
+        
+        // Add activities for this date
+        dateActivities.forEach(booking => {
+            // Create activity item
+            const activityItem = document.createElement('div');
+            activityItem.className = `activity-item status-${booking.status}`;
+            
+            // Determine icon based on status
+            let icon, title, statusText;
+            
+            switch(booking.status) {
+                case 'confirmed':
+                    icon = 'fa-calendar-check';
+                    title = 'Booking Confirmed';
+                    statusText = 'Confirmed';
+                    break;
+                case 'active':
+                    icon = 'fa-car';
+                    title = 'Active Rental';
+                    statusText = 'Active';
+                    break;
+                case 'completed':
+                    icon = 'fa-check-circle';
+                    title = 'Rental Completed';
+                    statusText = 'Completed';
+                    break;
+                case 'cancelled':
+                    icon = 'fa-times-circle';
+                    title = 'Booking Cancelled';
+                    statusText = 'Cancelled';
+                    break;
+                default:
+                    icon = 'fa-clock';
+                    title = 'Booking Update';
+                    statusText = booking.status.charAt(0).toUpperCase() + booking.status.slice(1);
+            }
+            
+            // Format vehicle details
+            const vehicleName = booking.vehicleName || 'Vehicle';
+            
+            // Format dates for display
+            const pickupDate = new Date(booking.pickupDate);
+            const returnDate = booking.returnDate ? new Date(booking.returnDate) : null;
+            
+            const formatDate = (date) => {
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            };
+            
+            const pickupFormatted = formatDate(pickupDate);
+            const returnFormatted = returnDate ? formatDate(returnDate) : '';
+            
+            // Build trip details based on status
+            let tripDetails = '';
+            if (booking.status === 'confirmed') {
+                tripDetails = `
+                    <div class="activity-trip-dates">
+                        <span class="activity-trip-date"><i class="fas fa-calendar-alt"></i> ${pickupFormatted}</span>
+                        <span class="activity-trip-separator">→</span>
+                        <span class="activity-trip-date"><i class="fas fa-calendar-check"></i> ${returnFormatted}</span>
+                    </div>
+                `;
+            } else if (booking.status === 'active') {
+                tripDetails = `
+                    <div class="activity-trip-dates">
+                        <span class="activity-trip-date"><i class="fas fa-hourglass-half"></i> Return by: ${returnFormatted}</span>
+                    </div>
+                `;
+            } else if (booking.status === 'completed') {
+                tripDetails = `
+                    <div class="activity-trip-dates">
+                        <span class="activity-trip-date"><i class="fas fa-check"></i> Returned: ${returnFormatted}</span>
+                    </div>
+                `;
+            } else if (booking.status === 'cancelled') {
+                tripDetails = `
+                    <div class="activity-trip-dates">
+                        <span class="activity-trip-date"><i class="fas fa-ban"></i> Cancelled on: ${formattedDate}</span>
+                    </div>
+                `;
+            }
+            
+            // Build the activity item HTML
+            activityItem.innerHTML = `
+                <div class="activity-icon status-${booking.status}">
+                    <i class="fas ${icon}"></i>
+                </div>
+                <div class="activity-details">
+                    <h4>
+                        ${title}
+                        <span class="activity-date-badge">${formattedDate}</span>
+                    </h4>
+                    <p><span class="activity-vehicle-name">${vehicleName}</span> booked for ${pickupFormatted}</p>
+                    ${tripDetails}
+                    <span class="activity-status status-${booking.status}">${statusText}</span>
+                </div>
+            `;
+            
+            recentActivityList.appendChild(activityItem);
+        });
+    });
+    
+    // Add "View All History" button at the bottom
+    const viewAllButton = document.createElement('div');
+    viewAllButton.className = 'view-all-history';
+    viewAllButton.innerHTML = `
+        <button class="view-history-btn" id="viewAllHistoryBtn">
+            <i class="fas fa-history"></i> View All Rental History
+        </button>
+    `;
+    recentActivityList.appendChild(viewAllButton);
+    
+    // Add CSS for the view all history button if not already added
+    if (!document.getElementById('view-history-button-style')) {
+        const btnStyle = document.createElement('style');
+        btnStyle.id = 'view-history-button-style';
+        btnStyle.textContent = `
+            .view-all-history {
+                margin-top: 15px;
+                text-align: center;
+            }
+            
+            .view-history-btn {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 100%;
+                padding: 8px 12px;
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                color: #495057;
+                font-size: 14px;
+                font-weight: 500;
+                transition: all 0.2s ease;
+                cursor: pointer;
+            }
+            
+            .view-history-btn:hover {
+                background-color: #e9ecef;
+                border-color: #ced4da;
+            }
+            
+            .view-history-btn i {
+                margin-right: 8px;
+            }
+        `;
+        document.head.appendChild(btnStyle);
+    }
+    
+    // Add event listener for the button
+    setTimeout(() => {
+        const historyBtn = document.getElementById('viewAllHistoryBtn');
+        if (historyBtn) {
+            historyBtn.addEventListener('click', () => {
+                // Find the history navigation item and click it
+                const historyNavItem = document.querySelector('.nav-item[data-section="history"]');
+                if (historyNavItem) {
+                    historyNavItem.click();
+                }
+            });
+        }
+    }, 100);
 }
 
 // Handle profile update
@@ -2896,6 +3442,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Load user data
                 await loadUserData();
                 
+                // Load dashboard data (metrics and recent activity)
+                await loadDashboard();
+                
                 // Load booking history if we're on the history tab
                 const historySection = document.getElementById('history');
                 if (historySection && historySection.classList.contains('active')) {
@@ -2909,6 +3458,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                         loadBookingHistory(user.uid);
                     });
                 }
+                
+                // Set up a timer to refresh dashboard data every 30 seconds if dashboard tab is active
+                setInterval(() => {
+                    const dashboardSection = document.getElementById('dashboard');
+                    if (dashboardSection && dashboardSection.classList.contains('active')) {
+                        loadDashboard();
+                    }
+                }, 30000);
                 
                 // Set up a timer to refresh booking history every 60 seconds if the history tab is active
                 setInterval(() => {
@@ -2959,16 +3516,16 @@ function initializeUI() {
         const today = new Date();
         dateElement.textContent = today.toLocaleDateString('en-US', options);
     }
-            
-            // Set minimum date for booking form
-            const today = new Date().toISOString().split('T')[0];
+    
+    // Set minimum date for booking form
+    const today = new Date().toISOString().split('T')[0];
     const pickupDateInput = document.getElementById('pickupDate');
     const returnDateInput = document.getElementById('returnDate');
     
     if (pickupDateInput) pickupDateInput.min = today;
     if (returnDateInput) returnDateInput.min = today;
-            
-            // Handle pickup date change to update return date minimum
+    
+    // Handle pickup date change to update return date minimum
     if (pickupDateInput) {
         pickupDateInput.addEventListener('change', function() {
             if (returnDateInput) returnDateInput.min = this.value;
@@ -2989,6 +3546,18 @@ function initializeUI() {
             }
         });
     }
+    
+    // Add CSS for activity status icons
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        .activity-icon.status-confirmed { background-color: #e3f2fd; color: #1976d2; }
+        .activity-icon.status-active { background-color: #e8f5e9; color: #388e3c; }
+        .activity-icon.status-completed { background-color: #e0f2f1; color: #00897b; }
+        .activity-icon.status-cancelled { background-color: #ffebee; color: #d32f2f; }
+        .activity-icon.loading { background-color: #f5f5f5; color: #616161; }
+        .activity-icon.empty { background-color: #f5f5f5; color: #616161; }
+    `;
+    document.head.appendChild(styleElement);
 }
 
 // Setup event listeners
@@ -3011,6 +3580,19 @@ function setupEventListeners() {
             // Show corresponding section
             const sectionId = item.getAttribute('data-section');
             document.getElementById(sectionId).classList.add('active');
+            
+            // Load dashboard data if dashboard is selected
+            if (sectionId === 'dashboard') {
+                loadDashboard();
+            }
+            
+            // Load booking history if history section is selected
+            if (sectionId === 'history') {
+                const user = getCurrentUser();
+                if (user) {
+                    loadBookingHistory(user.uid);
+                }
+            }
         });
     });
     
@@ -3185,21 +3767,34 @@ async function handleBookingSubmit(e) {
             submitButton.disabled = false;
         }
         
-        // Redirect to booking history after a delay
+        // Reset the booking form
+        e.target.reset();
+        
+        // Go back to vehicle selection
+        const bookingFormSection = document.getElementById('booking-form-section');
+        const vehiclesSection = document.getElementById('vehicles-section');
+        
+        if (bookingFormSection && vehiclesSection) {
+            bookingFormSection.style.display = 'none';
+            vehiclesSection.style.display = 'block';
+        }
+        
+        // Update dashboard with new booking data
+        // Show user the updated dashboard with their new booking
         setTimeout(() => {
-            // Redirect to history section
+            // Switch to dashboard tab to show new booking information
             document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
             document.querySelectorAll('.content-section').forEach(section => section.classList.remove('active'));
             
-            const historyNavItem = document.querySelector('.nav-item[data-section="history"]');
-            if (historyNavItem) {
-                historyNavItem.classList.add('active');
-                document.getElementById('history').classList.add('active');
+            const dashboardNavItem = document.querySelector('.nav-item[data-section="dashboard"]');
+            if (dashboardNavItem) {
+                dashboardNavItem.classList.add('active');
+                document.getElementById('dashboard').classList.add('active');
                 
-                // Reload booking history
-                loadBookingHistory(user.uid);
+                // Force reload dashboard data to show new booking
+                loadDashboard();
             }
-        }, 1500);
+        }, 1000);
         
     } catch (error) {
         console.error('Error creating booking:', error);
@@ -3980,4 +4575,126 @@ function handleViewBookingDetails(booking) {
 // Get current user
 function getCurrentUser() {
     return firebase.auth().currentUser;
+}
+
+// Load dashboard data efficiently
+async function loadDashboard() {
+    // Show loading indicators
+    const metricsBoxes = document.querySelectorAll('.metric-box .metric-value');
+    metricsBoxes.forEach(box => {
+        box.innerHTML = '<i class="fas fa-spinner fa-pulse"></i>';
+    });
+    
+    const recentActivityList = document.getElementById('recentActivityList');
+    if (recentActivityList) {
+        recentActivityList.innerHTML = '<div class="activity-item loading"><div class="activity-icon"><i class="fas fa-spinner fa-pulse"></i></div><div class="activity-details"><h4>Loading activities...</h4></div></div>';
+    }
+    
+    // Get current user
+    const user = getCurrentUser();
+    if (!user) return;
+    
+    // Use Promise.all to run parallel requests
+    try {
+        // Load data in parallel
+        const [userDoc, bookingsResponse] = await Promise.all([
+            // Get user data from Firebase
+            firebase.firestore().collection('users').doc(user.uid).get(),
+            
+            // Get booking data from API
+            new Promise(resolve => {
+                const { ipcRenderer } = require('electron');
+                ipcRenderer.invoke('api-call', {
+                    method: 'GET',
+                    url: `/api/bookings/user/${user.uid}`
+                })
+                .then(response => resolve(response))
+                .catch(() => {
+                    // Return cached bookings if API fails
+                    resolve({ 
+                        ok: false, 
+                        data: JSON.parse(localStorage.getItem('userBookings') || '[]') 
+                    });
+                });
+            })
+        ]);
+        
+        // Process user data
+        const userData = userDoc.exists ? userDoc.data() : {};
+        
+        // Process bookings data
+        const bookings = bookingsResponse.ok && bookingsResponse.data 
+            ? bookingsResponse.data 
+            : JSON.parse(localStorage.getItem('userBookings') || '[]');
+        
+        // Cache bookings for future use
+        if (bookingsResponse.ok && bookingsResponse.data) {
+            localStorage.setItem('userBookings', JSON.stringify(bookings));
+        }
+        
+        // Calculate metrics
+        const activeRentals = bookings.filter(booking => 
+            booking.status === 'confirmed' || booking.status === 'active'
+        ).length;
+        
+        const totalTrips = bookings.length;
+        
+        const loyaltyPoints = bookings.filter(booking => 
+            booking.status === 'completed'
+        ).length;
+        
+        // Calculate average rating if available
+        let rating = '5.0';
+        const userReviews = bookings.filter(booking => booking.userRating);
+        if (userReviews.length > 0) {
+            const totalRating = userReviews.reduce((sum, booking) => sum + booking.userRating, 0);
+            rating = (totalRating / userReviews.length).toFixed(1);
+        }
+        
+        // Update metrics in Firebase if they differ
+        if (activeRentals !== userData.activeRentals || 
+            totalTrips !== userData.totalTrips || 
+            loyaltyPoints !== userData.loyaltyPoints ||
+            rating !== userData.rating) {
+            
+            firebase.firestore().collection('users').doc(user.uid).update({
+                activeRentals: activeRentals,
+                totalTrips: totalTrips,
+                loyaltyPoints: loyaltyPoints,
+                rating: rating,
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            }).catch(error => console.error('Error updating user metrics in Firebase:', error));
+        }
+        
+        // Update UI
+        const activeRentalsElement = document.getElementById('activeRentals');
+        if (activeRentalsElement) {
+            activeRentalsElement.textContent = activeRentals;
+        }
+        
+        const totalTripsElement = document.getElementById('totalTrips');
+        if (totalTripsElement) {
+            totalTripsElement.textContent = totalTrips;
+        }
+        
+        const loyaltyPointsElement = document.getElementById('loyaltyPoints');
+        if (loyaltyPointsElement) {
+            loyaltyPointsElement.textContent = loyaltyPoints;
+        }
+        
+        const userRatingElement = document.getElementById('userRating');
+        if (userRatingElement) {
+            userRatingElement.textContent = rating;
+        }
+        
+        // Load recent activities
+        loadRecentActivities(bookings);
+        
+    } catch (error) {
+        console.error('Error loading dashboard data:', error);
+        
+        // Try to recover with any available data
+        const userData = {};
+        updateUserMetrics(userData);
+    }
 }
