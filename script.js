@@ -259,6 +259,12 @@ function showLoginForm(type) {
         loginButton.onclick = handleLogin;
     }
     
+    // Set up signup link to preserve login type
+    const signupLink = document.getElementById('signupLink');
+    if (signupLink) {
+        signupLink.onclick = function() { showSignupForm(); return false; };
+    }
+    
     loginForm.style.display = 'flex';
     requestAnimationFrame(() => {
         loginForm.style.opacity = '1';
@@ -360,13 +366,34 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 
 // Show signup form
 function showSignupForm() {
-    hideLoginForm();
+    // Get the login type from the login form title if it's visible
+    const loginTitle = document.getElementById('loginTitle');
+    const loginType = loginTitle && loginTitle.textContent.includes('Agent') ? 'agent' : 'customer';
+    
+    // Store the signup type in a data attribute for later use
     const signupForm = document.getElementById('signupForm');
+    signupForm.setAttribute('data-signup-type', loginType);
+    
+    // Update the signup form title
+    const signupTitle = signupForm.querySelector('.form-header h2');
+    if (signupTitle) {
+        signupTitle.textContent = loginType === 'agent' 
+            ? 'Create Agent Account' 
+            : 'Create Customer Account';
+    }
+    
+    hideLoginForm();
     
     // Add direct onclick attribute to signup button
     const signupButton = document.getElementById('signupButton');
     if (signupButton) {
         signupButton.onclick = handleSignup;
+    }
+    
+    // Update the login link to preserve the type
+    const loginLink = signupForm.querySelector('.signup-link a');
+    if (loginLink) {
+        loginLink.onclick = function() { showLoginForm(loginType); return false; };
     }
     
     signupForm.style.display = 'flex';
@@ -388,8 +415,22 @@ function hideSignupForm() {
 
 // Show reset password form
 function showResetPasswordForm() {
-    hideLoginForm();
+    // Get the login type from the login form title if it's visible
+    const loginTitle = document.getElementById('loginTitle');
+    const loginType = loginTitle && loginTitle.textContent.includes('Agent') ? 'agent' : 'customer';
+    
+    // Store the reset type in a data attribute for later use
     const resetForm = document.getElementById('resetPasswordForm');
+    resetForm.setAttribute('data-reset-type', loginType);
+    
+    hideLoginForm();
+    
+    // Update the login link to preserve the type
+    const loginLink = document.getElementById('resetLoginLink');
+    if (loginLink) {
+        loginLink.onclick = function() { showLoginForm(loginType); return false; };
+    }
+    
     resetForm.style.display = 'flex';
     requestAnimationFrame(() => {
         resetForm.style.opacity = '1';
@@ -559,7 +600,11 @@ async function handleSignup() {
     const password = document.getElementById('signupPassword').value;
     const confirmPassword = document.getElementById('signupConfirmPassword').value;
     
-    console.log('Signup attempt with email:', email);
+    // Get the signup type from the data attribute
+    const signupForm = document.getElementById('signupForm');
+    const signupType = signupForm.getAttribute('data-signup-type') || 'customer';
+    
+    console.log('Signup attempt with email:', email, 'type:', signupType);
     
     if (!name || !email || !password || !confirmPassword) {
         showError('signupErrorMessage', 'Please fill in all fields.');
@@ -601,13 +646,25 @@ async function handleSignup() {
         
         // Save user data to Firestore
         try {
+            // Set userType based on signup type
             await db.collection('users').doc(userCredential.user.uid).set({
                 name: name,
                 email: email,
-                userType: 'customer',
+                userType: signupType, // 'agent' or 'customer'
                 createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
             console.log('User data saved to Firestore');
+            
+            // Create agent document if this is an agent signup
+            if (signupType === 'agent') {
+                await db.collection('agents').doc(userCredential.user.uid).set({
+                    name: name,
+                    email: email,
+                    role: 'agent',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                console.log('Agent data saved to Firestore');
+            }
         } catch (firestoreError) {
             console.error('Firestore error during signup:', firestoreError);
             // Try to delete the auth user since Firestore failed
@@ -625,12 +682,13 @@ async function handleSignup() {
         // Signup successful
         hideSignupForm();
         
-        // Show success notification
-        showNotification('Account created successfully! You can now log in.', 'success');
+        // Show success notification with user type
+        const userTypeCapitalized = signupType.charAt(0).toUpperCase() + signupType.slice(1);
+        showNotification(`${userTypeCapitalized} account created successfully! You can now log in.`, 'success');
         
-        // Show login form after a short delay
+        // Show login form after a short delay with the appropriate type
         setTimeout(() => {
-            showLoginForm('customer');
+            showLoginForm(signupType);
         }, 1500);
     } catch (error) {
         console.error('Signup error details:', error);

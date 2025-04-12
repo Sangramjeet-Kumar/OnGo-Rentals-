@@ -630,7 +630,7 @@ async function loadUserData() {
             if (dashboardSection && dashboardSection.classList.contains('active')) {
                 loadBookingHistory(user.uid);
             }
-        } else {
+                } else {
             console.warn('User document does not exist in Firestore');
             showNotification('User profile could not be loaded completely', 'warning');
             
@@ -1018,17 +1018,33 @@ function loadRecentActivities(bookings) {
     // Show no activity message if no recent bookings
     if (recentBookings.length === 0) {
         recentActivityList.innerHTML = `
-            <div class="activity-item empty">
-                <div class="activity-icon">
-                    <i class="fas fa-calendar-times"></i>
+            <div class="activity-empty-state">
+                <div class="activity-empty-icon">
+                    <i class="fas fa-car-alt"></i>
                 </div>
-                <h4>No recent activity</h4>
-                <p>Book a car to get started!</p>
-                <button class="btn btn-primary mt-3" onclick="document.querySelector('.nav-item[data-section=\"book\"]').click()">
-                    <i class="fas fa-car"></i> Book Now
+                <h3>No recent activity yet</h3>
+                <p>Start your journey with OnGo Rentals by booking your first vehicle.</p>
+                <button class="empty-state-cta" id="bookFirstRideBtn">
+                    <i class="fas fa-car"></i> Book Your First Ride
                 </button>
             </div>
         `;
+        
+        // Add event listener to the book first ride button
+        const bookFirstRideBtn = document.getElementById('bookFirstRideBtn');
+        if (bookFirstRideBtn) {
+            bookFirstRideBtn.addEventListener('click', function() {
+                // Navigate to the book section
+                const bookNavItem = document.querySelector('.nav-item[data-section="book"]');
+                if (bookNavItem) {
+                    bookNavItem.click();
+                } else {
+                    // Fallback: try to navigate directly to the book section
+                    window.location.hash = 'book';
+                }
+            });
+        }
+        
         return;
     }
     
@@ -2344,8 +2360,8 @@ function handleVehicleBooking() {
         // If return date is now before pickup date, update it
         const returnDateInput = document.getElementById('summaryReturnDate');
         if (returnDateInput.value && returnDateInput.value < this.value) {
-            returnDateInput.value = this.value;
-        }
+                returnDateInput.value = this.value;
+            }
         
         updatePricingSummary();
     });
@@ -2576,7 +2592,7 @@ function setupBookingButtons() {
                     
                     // Update booking form with selected vehicle
                     populateBookingForm(vehicleId, vehicleName);
-                } else {
+            } else {
                     // Switch to booking section via nav
                     const bookSection = document.querySelector('#book');
                     if (bookSection) {
@@ -2836,9 +2852,9 @@ async function loadAvailableVehicles() {
                 function processNextBatch() {
                     if (currentBatch >= batchCount) {
                         console.timeEnd('vehicleCardCreation');
-                        return;
-                    }
-                    
+                return;
+            }
+            
                     const start = currentBatch * batchSize;
                     const end = Math.min((currentBatch + 1) * batchSize, vehicles.length);
                     const batchFragment = document.createDocumentFragment();
@@ -2932,7 +2948,7 @@ function createVehicleCard(vehicle) {
             statusBadge = '<span class="status-badge booked">Booked till 10 PM</span>';
         } else if (vehicle.status === 'maintenance') {
             statusBadge = '<span class="status-badge maintenance">Maintenance</span>';
-        } else {
+                } else {
             statusBadge = '<span class="status-badge inactive">Not Available</span>';
         }
         
@@ -3163,7 +3179,7 @@ function populateBookingForm(vehicleId, vehicleName) {
     // Set minimum date for booking - calculate dates once
     const today = new Date();
     const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+                tomorrow.setDate(tomorrow.getDate() + 1);
     
     const todayStr = today.toISOString().split('T')[0];
     const tomorrowStr = tomorrow.toISOString().split('T')[0];
@@ -3627,9 +3643,9 @@ async function handleBookingSubmit(e) {
         const user = firebase.auth().currentUser;
         if (!user) {
             showNotification('You must be logged in to book a vehicle', 'error');
-            return;
-        }
-        
+                return;
+            }
+            
         // Get form data
         const pickupDate = document.getElementById('pickupDate').value;
         const returnDate = document.getElementById('returnDate').value;
@@ -3638,14 +3654,14 @@ async function handleBookingSubmit(e) {
         
         if (!pickupDate || !returnDate) {
             showNotification('Please select pickup and return dates', 'error');
-            return;
-        }
-        
+                return;
+            }
+            
         if (!vehicleId) {
             showNotification('Please select a vehicle', 'error');
-            return;
-        }
-        
+                return;
+            }
+            
         // Show loading state
         const submitButton = e.target.querySelector('button[type="submit"]');
         if (submitButton) {
@@ -3816,9 +3832,9 @@ async function loadBookingHistory(userId) {
         const historySection = document.querySelector('#history .rental-history');
         if (!historySection) {
             console.error('History section element not found');
-            return;
-        }
-        
+                    return;
+                }
+                
         // Show loading state only if no data is already displayed
         if (!historySection.querySelector('.bookings-table')) {
             historySection.innerHTML = '<div class="loading-spinner"><i class="fas fa-spinner fa-pulse"></i> Loading booking history...</div>';
@@ -3852,23 +3868,34 @@ async function loadBookingHistory(userId) {
             if (cachedBookings.length > 0) {
                 console.log('Using cached bookings from localStorage:', cachedBookings);
                 displayBookings(cachedBookings);
-                return;
-            }
+                        return;
+                    }
             
             historySection.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-calendar-times"></i>
-                    <h3>No booking history yet</h3>
-                    <p>Your booking history will appear here once you've made a reservation.</p>
-                    <button class="book-now-redirect">Book a Vehicle Now</button>
+                <div class="rental-history-empty-state">
+                    <div class="history-empty-icon">
+                        <i class="fas fa-clipboard-list"></i>
+                    </div>
+                    <h3>Your journey history is empty</h3>
+                    <p>Book your first vehicle to start building your rental history. All your bookings and trips will appear here.</p>
+                    <button class="history-empty-cta" id="exploreVehiclesBtn">
+                        <i class="fas fa-car-side"></i> Explore Vehicles
+                    </button>
                 </div>
             `;
             
             // Add event listener to redirect button
-            const redirectButton = historySection.querySelector('.book-now-redirect');
-            if (redirectButton) {
-                redirectButton.addEventListener('click', () => {
-                    document.querySelector('.nav-item[data-section="book"]').click();
+            const exploreVehiclesBtn = document.getElementById('exploreVehiclesBtn');
+            if (exploreVehiclesBtn) {
+                exploreVehiclesBtn.addEventListener('click', function() {
+                    // Navigate to the book section
+                    const bookNavItem = document.querySelector('.nav-item[data-section="book"]');
+                    if (bookNavItem) {
+                        bookNavItem.click();
+                    } else {
+                        // Fallback: try to navigate directly to the book section
+                        window.location.hash = 'book';
+                    }
                 });
             }
             
@@ -3888,8 +3915,8 @@ async function loadBookingHistory(userId) {
         if (cachedBookings.length > 0) {
             console.log('Using cached bookings from localStorage due to error:', cachedBookings);
             displayBookings(cachedBookings);
-            return;
-        }
+                    return;
+                }
         
         // Show error state
         const historySection = document.querySelector('#history .rental-history');
@@ -4279,7 +4306,7 @@ async function handleAddReview(bookingId, vehicleId) {
             stars.forEach((s, index) => {
                 if (index < rating) {
                     s.className = 'fas fa-star';
-                } else {
+        } else {
                     s.className = 'far fa-star';
                 }
             });
@@ -4627,6 +4654,9 @@ async function loadDashboard() {
             ? bookingsResponse.data 
             : JSON.parse(localStorage.getItem('userBookings') || '[]');
         
+        // Check for and update expired rentals
+        await checkAndUpdateExpiredRentals(bookings);
+        
         // Cache bookings for future use
         if (bookingsResponse.ok && bookingsResponse.data) {
             localStorage.setItem('userBookings', JSON.stringify(bookings));
@@ -4698,3 +4728,432 @@ async function loadDashboard() {
         updateUserMetrics(userData);
     }
 }
+
+// Function to check for expired rentals and update their status
+async function checkAndUpdateExpiredRentals(bookings) {
+    try {
+        console.log('Checking for expired rentals...');
+        console.log('Current date for comparison:', new Date().toISOString());
+        const currentDate = new Date();
+        const { ipcRenderer } = require('electron');
+        
+        // Special check for Bullet 499
+        console.log('Special check for Bullet 499');
+        try {
+            const bullet499Response = await ipcRenderer.invoke('api-call', {
+                method: 'GET',
+                url: `/api/vehicles/search?name=Bullet 499`,
+                headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            console.log('Bullet 499 search response:', bullet499Response);
+            
+            if (bullet499Response.ok && bullet499Response.data && bullet499Response.data.length > 0) {
+                const bullet499 = bullet499Response.data[0];
+                console.log('Found Bullet 499 in database:', bullet499);
+                
+                // If status is rented/booked but should be available, update it
+                if (bullet499.status === 'booked' || bullet499.status === 'rented') {
+                    console.log('Bullet 499 is currently marked as rented, checking if rental has expired');
+                    
+                    // Find any active rental for this vehicle
+                    const rentalResponse = await ipcRenderer.invoke('api-call', {
+                        method: 'GET',
+                        url: `/api/bookings/vehicle/${bullet499._id}?status=active`,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        }
+                    });
+                    
+                    if (rentalResponse.ok && rentalResponse.data) {
+                        const activeRentals = rentalResponse.data;
+                        console.log('Active rentals for Bullet 499:', activeRentals);
+                        
+                        let shouldUpdateStatus = true;
+                        
+                        // Check if any rental is still active (not expired)
+                        for (const rental of activeRentals) {
+                            if (rental.returnDate) {
+                                const returnDate = new Date(rental.returnDate);
+                                console.log(`Comparing return date ${returnDate.toISOString()} with current date ${currentDate.toISOString()}`);
+                                
+                                if (returnDate > currentDate) {
+                                    console.log(`Rental is still active until ${returnDate.toISOString()}`);
+                                    shouldUpdateStatus = false;
+                                    break;
+                                } else {
+                                    console.log(`Rental has expired on ${returnDate.toISOString()}`);
+                                    
+                                    // Update this rental to completed
+                                    const updateRentalResponse = await ipcRenderer.invoke('api-call', {
+                                        method: 'PUT',
+                                        url: `/api/bookings/${rental._id}/status`,
+                                        body: JSON.stringify({ status: 'completed' })
+                                    });
+                                    
+                                    console.log('Update rental response:', updateRentalResponse);
+                                }
+                            }
+                        }
+                        
+                        // If all rentals have expired, update vehicle status
+                        if (shouldUpdateStatus) {
+                            console.log('Updating Bullet 499 status to available');
+                            const updateResponse = await ipcRenderer.invoke('api-call', {
+                                method: 'PUT',
+                                url: `/api/vehicles/${bullet499._id}/status`,
+                                body: JSON.stringify({ status: 'active' })
+                            });
+                            
+                            console.log('Update vehicle response:', updateResponse);
+                            
+                            if (updateResponse.ok) {
+                                // Also update the Firestore record if it exists
+                                try {
+                                    const db = firebase.firestore();
+                                    const vehicleQuery = await db.collection('vehicles')
+                                        .where('name', '==', 'Bullet 499')
+                                        .limit(1)
+                                        .get();
+                                    
+                                    if (!vehicleQuery.empty) {
+                                        const vehicleDoc = vehicleQuery.docs[0];
+                                        await vehicleDoc.ref.update({
+                                            status: 'active',
+                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                        });
+                                        console.log('Updated Bullet 499 in Firestore');
+                                    } else {
+                                        console.log('Bullet 499 not found in Firestore');
+                                    }
+                                } catch (firestoreError) {
+                                    console.error('Error updating Firestore:', firestoreError);
+                                }
+                                
+                                showNotification('Vehicle "Bullet 499" has been updated to available status', 'success');
+                            }
+                        }
+                    } else {
+                        console.log('No active rentals found for Bullet 499, updating status to available');
+                        // No active rentals found, so update the vehicle status
+                        const updateResponse = await ipcRenderer.invoke('api-call', {
+                            method: 'PUT',
+                            url: `/api/vehicles/${bullet499._id}/status`,
+                            body: JSON.stringify({ status: 'active' })
+                        });
+                        
+                        console.log('Update vehicle response:', updateResponse);
+                        
+                        if (updateResponse.ok) {
+                            showNotification('Vehicle "Bullet 499" has been updated to available status', 'success');
+                        }
+                    }
+                } else {
+                    console.log('Bullet 499 is already marked as available');
+                }
+            } else {
+                console.log('Bullet 499 not found in database');
+                
+                // Try direct Firestore update as a fallback
+                try {
+                    const db = firebase.firestore();
+                    const vehicleQuery = await db.collection('vehicles')
+                        .where('name', '==', 'Bullet 499')
+                        .limit(1)
+                        .get();
+                    
+                    if (!vehicleQuery.empty) {
+                        const vehicleDoc = vehicleQuery.docs[0];
+                        console.log('Found Bullet 499 in Firestore:', vehicleDoc.data());
+                        
+                        if (vehicleDoc.data().status === 'booked' || vehicleDoc.data().status === 'rented') {
+                            await vehicleDoc.ref.update({
+                                status: 'active',
+                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            console.log('Updated Bullet 499 status in Firestore to active');
+                            showNotification('Vehicle "Bullet 499" has been updated to available status (Firestore)', 'success');
+                        }
+                    }
+                } catch (firestoreError) {
+                    console.error('Error directly updating Firestore:', firestoreError);
+                }
+            }
+        } catch (bullet499Error) {
+            console.error('Error during special check for Bullet 499:', bullet499Error);
+        }
+        
+        // Get all active and confirmed rentals
+        const activeBookings = bookings.filter(booking => 
+            (booking.status === 'active' || booking.status === 'confirmed') && 
+            booking.returnDate && booking.vehicleId
+        );
+        
+        console.log(`Found ${activeBookings.length} active bookings to check for expiration`);
+        
+        // Check each active booking to see if it has expired
+        for (const booking of activeBookings) {
+            // Convert returnDate string to Date object with explicit parsing
+            let returnDate;
+            try {
+                // Handle different date formats
+                if (typeof booking.returnDate === 'string') {
+                    returnDate = new Date(booking.returnDate);
+                } else if (booking.returnDate && typeof booking.returnDate.toDate === 'function') {
+                    // Handle Firestore Timestamp
+                    returnDate = booking.returnDate.toDate();
+                } else if (booking.returnDate && booking.returnDate._seconds) {
+                    // Handle Firestore Timestamp in JSON format
+                    returnDate = new Date(booking.returnDate._seconds * 1000);
+                } else {
+                    returnDate = new Date(booking.returnDate);
+                }
+                
+                console.log(`Booking ${booking._id} for vehicle ${booking.vehicleId || booking.vehicleName} has return date: ${returnDate.toISOString()}`);
+                
+                // If return date is in the past, this rental has expired
+                if (returnDate < currentDate) {
+                    console.log(`Found expired rental for vehicle ${booking.vehicleId || booking.vehicleName}, booking ID: ${booking._id}`);
+                    
+                    // Update booking status to completed
+                    try {
+                        const updateResponse = await ipcRenderer.invoke('api-call', {
+                            method: 'PUT',
+                            url: `/api/bookings/${booking._id}/status`,
+                            body: JSON.stringify({ status: 'completed' })
+                        });
+                        
+                        if (updateResponse.ok) {
+                            console.log(`Successfully updated expired booking ${booking._id} to completed`);
+                            
+                            // Get the vehicle ID - either directly or look it up
+                            const vehicleId = booking.vehicleId;
+                            if (!vehicleId) {
+                                console.warn(`No vehicle ID found for booking ${booking._id}, skipping vehicle update`);
+                                continue;
+                            }
+                            
+                            // Update vehicle status to available
+                            const vehicleUpdateResponse = await ipcRenderer.invoke('api-call', {
+                                method: 'PUT',
+                                url: `/api/vehicles/${vehicleId}/status`,
+                                body: JSON.stringify({ status: 'active' })
+                            });
+                            
+                            if (vehicleUpdateResponse.ok) {
+                                console.log(`Successfully updated vehicle ${vehicleId} status to available`);
+                                
+                                // Also update the status in Firestore if it exists there
+                                try {
+                                    const db = firebase.firestore();
+                                    // Update rental status in Firestore
+                                    const rentalDoc = await db.collection('rentals').doc(booking._id).get();
+                                    if (rentalDoc.exists) {
+                                        await db.collection('rentals').doc(booking._id).update({
+                                            status: 'completed',
+                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                        });
+                                    }
+                                    
+                                    // Update vehicle status in Firestore
+                                    const vehicleQuery = await db.collection('vehicles')
+                                        .where('vehicleId', '==', vehicleId)
+                                        .limit(1)
+                                        .get();
+                                    
+                                    if (!vehicleQuery.empty) {
+                                        await vehicleQuery.docs[0].ref.update({
+                                            status: 'active',
+                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                        });
+                                    }
+                                    
+                                    console.log(`Successfully updated Firestore data for expired rental ${booking._id}`);
+                                } catch (firestoreError) {
+                                    console.error(`Error updating Firestore for expired rental: ${firestoreError}`);
+                                    // Continue execution even if Firestore update fails
+                                }
+                            } else {
+                                console.error(`Failed to update vehicle ${vehicleId} status: ${vehicleUpdateResponse.error || 'Unknown error'}`);
+                            }
+                        } else {
+                            console.error(`Failed to update booking ${booking._id} status: ${updateResponse.error || 'Unknown error'}`);
+                        }
+                    } catch (error) {
+                        console.error(`Error processing expired rental ${booking._id}:`, error);
+                    }
+                }
+            } catch (dateError) {
+                console.error(`Error parsing date for booking ${booking._id}:`, dateError);
+            }
+        }
+        
+        console.log('Expired rentals check completed');
+    } catch (error) {
+        console.error('Error checking expired rentals:', error);
+    }
+}
+
+// Function to manually refresh vehicle and rental data
+async function refreshVehicleAndRentalData() {
+    try {
+        console.log('Manually refreshing vehicle and rental data...');
+        showNotification('Refreshing data...', 'info');
+        
+        const user = getCurrentUser();
+        if (!user) {
+            console.error('No user logged in, cannot refresh data');
+            showNotification('Please log in to refresh data', 'error');
+            return;
+        }
+        
+        // First check and update any expired rentals
+        await checkAndUpdateExpiredRentals([]);
+        
+        // Refresh bookings data from API
+        const { ipcRenderer } = require('electron');
+        const bookingsResponse = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/user/${user.uid}?nocache=${Date.now()}`
+        });
+        
+        // Refresh vehicle data from API
+        const vehiclesResponse = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/vehicles?nocache=${Date.now()}`
+        });
+        
+        console.log('API responses received:', {
+            bookings: bookingsResponse.ok,
+            vehicles: vehiclesResponse.ok
+        });
+        
+        // Update dashboard with refreshed data
+        if (bookingsResponse.ok && bookingsResponse.data) {
+            localStorage.setItem('userBookings', JSON.stringify(bookingsResponse.data));
+            loadRecentActivities(bookingsResponse.data);
+            
+            // Update rental status counters
+            updateRentalStatusCounts(bookingsResponse.data);
+        }
+        
+        // Refresh rental history if that section is active
+        const historySection = document.querySelector('#history');
+        if (historySection && historySection.classList.contains('active')) {
+            loadBookingHistory(user.uid);
+        }
+        
+        // Refresh available vehicles if that section is active
+        const bookSection = document.querySelector('#book');
+        if (bookSection && bookSection.classList.contains('active')) {
+            loadAvailableVehicles();
+        }
+        
+        showNotification('Data refreshed successfully', 'success');
+    } catch (error) {
+        console.error('Error refreshing data:', error);
+        showNotification('Error refreshing data: ' + error.message, 'error');
+    }
+}
+
+// Helper function to update rental status counters
+function updateRentalStatusCounts(bookings = []) {
+    const activeRentals = bookings.filter(booking => 
+        booking.status === 'confirmed' || booking.status === 'active'
+    ).length;
+    
+    const completedRentals = bookings.filter(booking => 
+        booking.status === 'completed'
+    ).length;
+    
+    // Update the dashboard UI
+    const activeRentalsElement = document.getElementById('activeRentals');
+    if (activeRentalsElement) {
+        activeRentalsElement.textContent = activeRentals;
+    }
+    
+    const totalTripsElement = document.getElementById('totalTrips');
+    if (totalTripsElement) {
+        totalTripsElement.textContent = bookings.length;
+    }
+    
+    const loyaltyPointsElement = document.getElementById('loyaltyPoints');
+    if (loyaltyPointsElement) {
+        loyaltyPointsElement.textContent = completedRentals;
+    }
+}
+
+// Add the refresh button to the dashboard header
+document.addEventListener('DOMContentLoaded', () => {
+    // Add refresh button to dashboard header
+    const dashboardHeader = document.querySelector('#dashboard .section-header');
+    if (dashboardHeader) {
+        const refreshButton = document.createElement('button');
+        refreshButton.className = 'refresh-data-btn';
+        refreshButton.innerHTML = '<i class="fas fa-sync-alt"></i> Refresh Data';
+        refreshButton.addEventListener('click', refreshVehicleAndRentalData);
+        
+        dashboardHeader.appendChild(refreshButton);
+        
+        // Add CSS for the refresh button
+        const style = document.createElement('style');
+        style.textContent = `
+            .refresh-data-btn {
+                background: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                padding: 8px 15px;
+                font-size: 14px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                transition: all 0.2s ease;
+                box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            }
+            
+            .refresh-data-btn:hover {
+                background: var(--primary-dark);
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            }
+            
+            .refresh-data-btn i {
+                font-size: 14px;
+            }
+            
+            .refresh-data-btn.loading i {
+                animation: spin 1s linear infinite;
+            }
+            
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Also add refresh button to history and book sections
+        const historyHeader = document.querySelector('#history .section-header');
+        if (historyHeader) {
+            const historyRefreshButton = refreshButton.cloneNode(true);
+            historyRefreshButton.addEventListener('click', () => {
+                const user = getCurrentUser();
+                if (user) loadBookingHistory(user.uid);
+            });
+            historyHeader.appendChild(historyRefreshButton);
+        }
+        
+        const bookHeader = document.querySelector('#book .section-header');
+        if (bookHeader) {
+            const bookRefreshButton = refreshButton.cloneNode(true);
+            bookRefreshButton.addEventListener('click', loadAvailableVehicles);
+            bookHeader.appendChild(bookRefreshButton);
+        }
+    }
+});

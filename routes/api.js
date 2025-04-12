@@ -742,7 +742,28 @@ router.get('/vehicles/:id', async (req, res) => {
 // GET all vehicles
 router.get('/vehicles', async (req, res) => {
     try {
-        const vehicles = await Vehicle.find().populate('agentId');
+        const { agentId } = req.query;
+        
+        // Filter vehicles by agentId if provided
+        let query = {};
+        
+        if (agentId) {
+            // Check if it's a valid MongoDB ObjectId or Firebase UID
+            if (mongoose.Types.ObjectId.isValid(agentId)) {
+                query.agentId = agentId;
+            } else {
+                // Try to find the agent by Firebase UID
+                const agent = await Agent.findOne({ firebaseUID: agentId });
+                if (agent) {
+                    query.agentId = agent._id;
+                } else {
+                    // If no agent found with this ID, return empty results
+                    return res.json([]);
+                }
+            }
+        }
+        
+        const vehicles = await Vehicle.find(query).populate('agentId');
         res.json(vehicles);
     } catch (error) {
         console.error('Error fetching vehicles:', error);

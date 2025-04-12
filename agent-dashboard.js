@@ -902,18 +902,32 @@ async function loadInventory() {
         // Use the IPC channel to fetch vehicles from MongoDB
         const { ipcRenderer } = require('electron');
         
-        // Add a timestamp parameter to avoid browser caching
+        // Get the current user ID (agent ID)
+        let agentId = null;
+        try {
+            const user = firebase.auth().currentUser;
+            if (user) {
+                agentId = user.uid;
+                console.log('Current agent ID:', agentId);
+            } else {
+                console.warn('No authenticated user found');
+            }
+        } catch (authError) {
+            console.error('Error getting current user:', authError);
+        }
+        
+        // Add a timestamp parameter to avoid browser caching and include agentId
         const timestamp = new Date().getTime();
         const response = await ipcRenderer.invoke('api-call', {
             method: 'GET',
-            url: `/api/vehicles?nocache=${timestamp}`
+            url: `/api/vehicles?nocache=${timestamp}${agentId ? `&agentId=${agentId}` : ''}`
         });
         
         // Remove loading row
         inventoryTable.innerHTML = '';
         
         if (!response.ok || !response.data || response.data.length === 0) {
-            inventoryTable.innerHTML = '<tr><td colspan="7" class="empty-row">No vehicles found in database</td></tr>';
+            inventoryTable.innerHTML = '<tr><td colspan="7" class="empty-row"><div class="empty-state"><i class="fas fa-car-alt"></i><p>You haven\'t added any vehicles yet.</p><p class="empty-state-action">Click the "Add Vehicle" button to get started.</p></div></td></tr>';
             console.warn('No vehicles found or error fetching vehicles:', response);
             return;
         }
@@ -978,7 +992,7 @@ async function loadInventory() {
     } catch (error) {
         console.error('Error loading inventory:', error);
         const inventoryTable = document.querySelector('.inventory-table tbody');
-        inventoryTable.innerHTML = `<tr><td colspan="7" class="error-row">Error loading inventory: ${error.message}</td></tr>`;
+        inventoryTable.innerHTML = `<tr><td colspan="7" class="error-row"><div class="empty-state error-state"><i class="fas fa-exclamation-triangle"></i><p>Error loading inventory</p><p class="empty-state-action">${error.message}</p></div></td></tr>`;
     }
 }
 
@@ -1075,7 +1089,7 @@ function setupInventoryActionButtons() {
                         // Check if table is now empty and add empty message if needed
                         const inventoryTable = document.querySelector('.inventory-table tbody');
                         if (inventoryTable.children.length === 0) {
-                            inventoryTable.innerHTML = '<tr><td colspan="7" class="empty-row">No vehicles found in database</td></tr>';
+                            inventoryTable.innerHTML = '<tr><td colspan="7" class="empty-row"><div class="empty-state"><i class="fas fa-car-alt"></i><p>You haven\'t added any vehicles yet.</p><p class="empty-state-action">Click the "Add Vehicle" button to get started.</p></div></td></tr>';
                         }
                     }, 500);
                     
@@ -1471,7 +1485,11 @@ async function loadCurrentRentals(agentId) {
                 data: []
             };
         }
+
+        // Check for and update expired rentals
+        await checkAndUpdateExpiredRentals(bookingsResponse.data);
         
+        // Continue with the function as normal
         let vehiclesResponse = { ok: false, data: [] };
         try {
             // Second approach: Query the vehicles that are marked as booked
@@ -1858,6 +1876,110 @@ async function loadCurrentRentals(agentId) {
         } else {
             console.warn('Rentals container not found, cannot show error state');
         }
+    }
+}
+
+// Function to check and update rentals with expired return dates
+async function checkAndUpdateExpiredRentals(rentals) {
+    try {
+        console.log('Checking for agent-side expired rentals...');
+        if (!rentals || !Array.isArray(rentals)) {
+            console.log('No rentals data to check');
+            return;
+        }
+        
+        const currentDate = new Date();
+        const { ipcRenderer } = require('electron');
+        let updatedCount = 0;
+        
+        // Process each rental to check if it's expired
+        for (const rental of rentals) {
+            // Skip if already completed or cancelled
+            if (rental.status === 'completed' || rental.status === 'cancelled') {
+                continue;
+            }
+            
+            if (!rental.returnDate) {
+                console.warn(`Rental ${rental._id || 'unknown'} has no return date, skipping`);
+                continue;
+            }
+            
+            // Parse return date
+            const returnDate = new Date(rental.returnDate);
+            
+            // If return date is in the past, this rental has expired
+            if (returnDate < currentDate) {
+                console.log(`Found expired rental for vehicle ${rental.vehicleId}, booking ID: ${rental._id}`);
+                
+                // Update booking status to completed
+                try {
+                    const updateResponse = await ipcRenderer.invoke('api-call', {
+                        method: 'PUT',
+                        url: `/api/bookings/${rental._id}/status`,
+                        body: JSON.stringify({ status: 'completed' })
+                    });
+                    
+                    if (updateResponse.ok) {
+                        console.log(`Successfully updated expired booking ${rental._id} to completed`);
+                        
+                        // Update vehicle status to available
+                        const vehicleUpdateResponse = await ipcRenderer.invoke('api-call', {
+                            method: 'PUT',
+                            url: `/api/vehicles/${rental.vehicleId}/status`,
+                            body: JSON.stringify({ status: 'active' })
+                        });
+                        
+                        if (vehicleUpdateResponse.ok) {
+                            console.log(`Successfully updated vehicle ${rental.vehicleId} status to available`);
+                            updatedCount++;
+                            
+                            // Also update the status in Firestore if it exists there
+                            try {
+                                // Update rental status in Firestore
+                                await firebase.firestore().collection('rentals').doc(rental._id).update({
+                                    status: 'completed',
+                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                                
+                                // Update vehicle status in Firestore
+                                const vehicleDoc = await firebase.firestore().collection('vehicles')
+                                    .where('vehicleId', '==', rental.vehicleId)
+                                    .limit(1)
+                                    .get();
+                                
+                                if (!vehicleDoc.empty) {
+                                    await vehicleDoc.docs[0].ref.update({
+                                        status: 'active',
+                                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                }
+                                
+                                console.log(`Successfully updated Firestore data for expired rental ${rental._id}`);
+                            } catch (firestoreError) {
+                                console.error(`Error updating Firestore for expired rental: ${firestoreError}`);
+                                // Continue execution even if Firestore update fails
+                            }
+                        } else {
+                            console.error(`Failed to update vehicle ${rental.vehicleId} status: ${vehicleUpdateResponse.error || 'Unknown error'}`);
+                        }
+                    } else {
+                        console.error(`Failed to update booking ${rental._id} status: ${updateResponse.error || 'Unknown error'}`);
+                    }
+                } catch (error) {
+                    console.error(`Error processing expired rental ${rental._id}:`, error);
+                }
+            }
+        }
+        
+        if (updatedCount > 0) {
+            console.log(`Updated ${updatedCount} expired rentals`);
+            // If we updated any rentals, show a notification
+            showNotification(`Updated ${updatedCount} vehicles from 'rented' to 'available' based on expired rental periods`, 'info');
+        } else {
+            console.log('No expired rentals found needing updates');
+        }
+    } catch (error) {
+        console.error('Error checking for expired rentals:', error);
     }
 }
 

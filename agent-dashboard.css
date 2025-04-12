@@ -1106,4 +1106,34 @@ body {
         text-align: center;
         gap: 20px;
     }
+}
+
+.empty-state {
+    padding: 30px;
+    text-align: center;
+    color: #6b7280;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #d1d5db;
+}
+
+.empty-state p {
+    font-size: 16px;
+    margin-bottom: 5px;
+}
+
+.empty-state-action {
+    font-size: 14px;
+    color: #4b5563;
+}
+
+.error-state {
+    color: #991b1b;
+}
+
+.error-state i {
+    color: #ef4444;
 } 
