@@ -40,6 +40,22 @@ server.use((req, res, next) => {
     next();
 });
 
+// Add JSON body parser with error handler
+server.use(express.json({
+    limit: '10mb',
+    verify: (req, res, buf, encoding) => {
+        try {
+            JSON.parse(buf);
+        } catch (e) {
+            res.status(400).json({ 
+                error: 'Invalid JSON in request body',
+                message: e.message
+            });
+            throw new Error('Invalid JSON');
+        }
+    }
+}));
+
 // Use API routes
 server.use('/api', apiRoutes);
 

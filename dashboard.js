@@ -1461,6 +1461,253 @@ function handleRentalHistory() {
 
 // Handle vehicle booking process
 function handleVehicleBooking() {
+    // Add CSS styling for the booking form
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        /* Modern Booking Form Styles */
+        .booking-form-container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0, 0, 40, 0.12);
+            overflow: hidden;
+        }
+        
+        .booking-form-header {
+            padding: 24px 32px;
+            background: linear-gradient(135deg, #4a6cf7, #2541b2);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .booking-form-header h2 {
+            font-size: 28px;
+            font-weight: 600;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .booking-form-header .vehicle-title {
+            font-size: 20px;
+            font-weight: 500;
+        }
+        
+        .back-button {
+            display: flex;
+            align-items: center;
+            color: white;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .back-button:hover {
+            background: rgba(255,255,255,0.3);
+            transform: translateY(-2px);
+        }
+        
+        .back-button i {
+            margin-right: 8px;
+        }
+        
+        .booking-form-body {
+            padding: 32px;
+        }
+        
+        .booking-form-section {
+            margin-bottom: 32px;
+        }
+        
+        .booking-form-section h3 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+            border-bottom: 2px solid #f2f4f8;
+            padding-bottom: 8px;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            flex: 1;
+        }
+        
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #555;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 15px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #f9fafc;
+            transition: all 0.2s;
+        }
+        
+        .form-control:focus {
+            border-color: #4a6cf7;
+            background-color: #fff;
+            box-shadow: 0 0 0 3px rgba(74, 108, 247, 0.15);
+            outline: none;
+        }
+        
+        .input-with-icon {
+            position: relative;
+        }
+        
+        .input-with-icon i {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #aaa;
+        }
+        
+        .booking-summary {
+            background-color: #f8faff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-top: 20px;
+        }
+        
+        .booking-summary-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #333;
+        }
+        
+        .booking-summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .booking-summary-row:last-child {
+            border-bottom: none;
+        }
+        
+        .booking-summary-label {
+            font-size: 15px;
+            color: #555;
+        }
+        
+        .booking-summary-value {
+            font-size: 15px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .booking-total {
+            margin-top: 16px;
+            padding-top: 16px;
+            border-top: 2px solid #e0e7ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .booking-total-label {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .booking-total-value {
+            font-size: 20px;
+            font-weight: 700;
+            color: #4a6cf7;
+        }
+        
+        .terms-container {
+            margin: 24px 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        .terms-container input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-right: 10px;
+            accent-color: #4a6cf7;
+        }
+        
+        .terms-container label {
+            font-size: 14px;
+            color: #555;
+        }
+        
+        .terms-container a {
+            color: #4a6cf7;
+            text-decoration: none;
+        }
+        
+        .booking-actions {
+            margin-top: 32px;
+            display: flex;
+            justify-content: flex-end;
+        }
+        
+        .complete-booking-btn {
+            padding: 14px 28px;
+            background: linear-gradient(135deg, #4a6cf7, #2541b2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 10px rgba(74, 108, 247, 0.2);
+        }
+        
+        .complete-booking-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(74, 108, 247, 0.3);
+        }
+        
+        .complete-booking-btn:active {
+            transform: translateY(0);
+        }
+        
+        @media screen and (max-width: 768px) {
+            .form-row {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .booking-form-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .booking-form-body {
+                padding: 20px;
+            }
+        }
+    `;
+    document.head.appendChild(styleElement);
+    
     const bookBtns = document.querySelectorAll('.book-now-btn');
     const vehicleContainer = document.querySelector('.vehicle-showcase');
     const summaryContainer = document.getElementById('bookingSummary');

@@ -21,6 +21,33 @@ document.addEventListener('DOMContentLoaded', async function() {
                 color: #3a86ff;
             }
             
+            /* Customer styles */
+            .customer-info h4 {
+                font-size: 15px;
+                margin: 0 0 2px;
+                color: #111827;
+                font-weight: 600;
+                background-color: #f0f9ff;
+                padding: 3px 8px;
+                border-radius: 4px;
+                display: inline-block;
+            }
+            
+            .customer-id {
+                margin: 0;
+                font-size: 13px;
+                color: #4b5563;
+            }
+            
+            .id-value {
+                font-weight: 600;
+                color: #111827;
+                background-color: #f3f4f6;
+                padding: 2px 6px;
+                border-radius: 4px;
+                display: inline-block;
+            }
+            
             /* Current Rentals Styles */
             .rentals-container {
                 margin-top: 20px;
@@ -148,11 +175,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             
             .customer-avatar i {
                 color: #6b7280;
-            }
-            
-            .customer-info h4 {
-                font-size: 15px;
-                margin: 0 0 2px;
             }
             
             .rental-detail-group {
@@ -1625,17 +1647,168 @@ async function loadCurrentRentals(agentId) {
         
         console.log(`Combined total: ${allRentals.length} unique current rentals`);
         
+        // PRE-PROCESS RENTAL DATA TO ENSURE PROPER CUSTOMER AND LOCATION INFO
+        // This step validates and enriches the rental data before rendering
+        const processedRentals = await Promise.all(allRentals.map(async (rental) => {
+            // Make a copy to avoid modifying the original
+            const processedRental = { ...rental };
+            
+            // Log the raw rental data for debugging
+            console.log('Raw rental data before processing:', processedRental);
+            
+            // Process vehicle information
+            processedRental.vehicleName = processedRental.vehicleName || 'Unknown Vehicle';
+            processedRental.vehicleType = processedRental.vehicleType || 'Unknown';
+            
+            // Check if this is a synthetic booking (created from a booked vehicle rather than a real booking)
+            const isSyntheticBooking = processedRental.isSyntheticBooking || processedRental.bookingId === 'unknown';
+            
+            // If this is a synthetic booking, try to find a real booking for this vehicle
+            if (isSyntheticBooking && processedRental.vehicleId) {
+                try {
+                    // First check if we can find a real booking for this vehicle
+                    const { ipcRenderer } = require('electron');
+                    const bookingsForVehicle = await ipcRenderer.invoke('api-call', {
+                        method: 'GET',
+                        url: `/api/bookings?vehicleId=${processedRental.vehicleId}&status=confirmed`,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        }
+                    });
+                    
+                    if (bookingsForVehicle.ok && bookingsForVehicle.data && Array.isArray(bookingsForVehicle.data) && bookingsForVehicle.data.length > 0) {
+                        // Sort bookings by date (most recent first)
+                        const recentBookings = bookingsForVehicle.data.sort((a, b) => 
+                            new Date(b.createdAt || b.updatedAt || 0) - new Date(a.createdAt || a.updatedAt || 0)
+                        );
+                        
+                        // Use the most recent booking's data
+                        const latestBooking = recentBookings[0];
+                        console.log('Found real booking for synthetic entry:', latestBooking);
+                        
+                        // Update synthetic booking with real booking data
+                        processedRental.bookingId = latestBooking._id;
+                        processedRental.isSyntheticBooking = false;
+                        
+                        if (latestBooking.userId) processedRental.customerId = latestBooking.userId;
+                        if (latestBooking.userName) processedRental.customerName = latestBooking.userName;
+                        if (latestBooking.pickupLocation) processedRental.pickupLocation = latestBooking.pickupLocation;
+                        if (latestBooking.returnLocation) processedRental.returnLocation = latestBooking.returnLocation;
+                        if (latestBooking.pickupDate) processedRental.pickupDate = latestBooking.pickupDate;
+                        if (latestBooking.returnDate) processedRental.returnDate = latestBooking.returnDate;
+                        if (latestBooking.totalAmount) processedRental.totalAmount = latestBooking.totalAmount;
+                        if (latestBooking.status) processedRental.status = latestBooking.status;
+                        
+                        // Calculate updated time metrics
+                        const currentDate = new Date();
+                        const returnDate = new Date(processedRental.returnDate);
+                        const timeUntilReturn = returnDate - currentDate;
+                        const hoursUntilReturn = Math.floor(timeUntilReturn / (1000 * 60 * 60));
+                        
+                        processedRental.hoursUntilReturn = hoursUntilReturn;
+                        processedRental.isReturningToday = hoursUntilReturn <= 24;
+                        processedRental.isReturningInTwoHours = hoursUntilReturn <= 2;
+                    } else {
+                        // Also check Firebase for bookings
+                        const firebaseBookings = await ipcRenderer.invoke('api-call', {
+                            method: 'GET',
+                            url: `/api/bookings/firebase?vehicleId=${processedRental.vehicleId}`,
+                            headers: {
+                                'Accept': 'application/json',
+                                'Cache-Control': 'no-cache'
+                            }
+                        });
+                        
+                        if (firebaseBookings.ok && firebaseBookings.data && firebaseBookings.data.length > 0) {
+                            const latestFirebaseBooking = firebaseBookings.data[0];
+                            console.log('Found Firebase booking for synthetic entry:', latestFirebaseBooking);
+                            
+                            // Update missing fields
+                            if (latestFirebaseBooking.pickupLocation) processedRental.pickupLocation = latestFirebaseBooking.pickupLocation;
+                            if (latestFirebaseBooking.returnLocation) processedRental.returnLocation = latestFirebaseBooking.returnLocation;
+                            if (latestFirebaseBooking.customerName) processedRental.customerName = latestFirebaseBooking.customerName;
+                            if (latestFirebaseBooking.customerId) processedRental.customerId = latestFirebaseBooking.customerId;
+                            if (latestFirebaseBooking.bookingId) processedRental.bookingId = latestFirebaseBooking.bookingId;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error retrieving real booking for synthetic entry:', error);
+                }
+            }
+            
+            // Fetch customer details if needed (if we have an ID but no name)
+            if ((processedRental.customerName === 'Unknown Customer' || !processedRental.customerName) && 
+                processedRental.customerId && 
+                processedRental.customerId !== 'unknown') {
+                
+                try {
+                    const customerDetails = await fetchCustomerDetails(processedRental.customerId);
+                    if (customerDetails) {
+                        console.log('Fetched customer details:', customerDetails);
+                        
+                        // Update customer name if available
+                        if (customerDetails.name) {
+                            processedRental.customerName = customerDetails.name;
+                        }
+                        
+                        // Store additional customer details if needed later
+                        processedRental.customerEmail = customerDetails.email || '';
+                        processedRental.customerPhone = customerDetails.phoneNumber || '';
+                    }
+                } catch (error) {
+                    console.error('Error fetching customer details:', error);
+                }
+            }
+            
+            // Fetch booking details if needed (if we have a booking ID but missing location info)
+            if ((processedRental.pickupLocation === 'Not specified' || processedRental.returnLocation === 'Not specified') && 
+                processedRental.bookingId && 
+                processedRental.bookingId !== 'unknown') {
+                
+                try {
+                    const bookingDetails = await fetchBookingDetails(processedRental.bookingId);
+                    if (bookingDetails) {
+                        console.log('Fetched booking details:', bookingDetails);
+                        
+                        // Update pickup location if needed
+                        if (processedRental.pickupLocation === 'Not specified' && bookingDetails.pickupLocation) {
+                            processedRental.pickupLocation = bookingDetails.pickupLocation;
+                        }
+                        
+                        // Update return location if needed
+                        if (processedRental.returnLocation === 'Not specified' && bookingDetails.returnLocation) {
+                            processedRental.returnLocation = bookingDetails.returnLocation;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching booking details:', error);
+                }
+            }
+            
+            // Log the processed rental data
+            console.log('Processed rental data (ready for rendering):', {
+                vehicleName: processedRental.vehicleName,
+                customerName: processedRental.customerName, 
+                customerId: processedRental.customerId,
+                pickupLocation: processedRental.pickupLocation,
+                returnLocation: processedRental.returnLocation
+            });
+            
+            return processedRental;
+        }));
+        
         // Update dashboard active rentals count - add null check
         const activeRentalsElement = document.getElementById('activeRentals');
         if (activeRentalsElement) {
-            activeRentalsElement.textContent = allRentals.length.toString();
+            activeRentalsElement.textContent = processedRentals.length.toString();
         } else {
-            console.warn('activeRentals element not found, cannot update count with total:', allRentals.length);
+            console.warn('activeRentals element not found, cannot update count with total:', processedRentals.length);
         }
         
         // Process and display each rental - add null check
         if (rentalsListElement) {
-            allRentals.forEach((rental, index) => {
+            processedRentals.forEach((rental, index) => {
                 try {
                     console.log(`Processing rental ${index + 1}:`, rental);
                     const rentalElement = createRentalCard(rental);
@@ -1690,34 +1863,79 @@ async function loadCurrentRentals(agentId) {
 
 // Create a rental card element
 function createRentalCard(rental) {
+    // Final validation of rental data before creating the card
+    // Ensure we have all required values and replace any remaining placeholders
+    const validatedRental = {
+        ...rental,
+        vehicleName: rental.vehicleName && rental.vehicleName !== 'Unknown Vehicle' 
+            ? rental.vehicleName 
+            : (rental.make && rental.model ? `${rental.make} ${rental.model}` : 'Vehicle'),
+        
+        vehicleType: rental.vehicleType && rental.vehicleType !== 'Unknown' 
+            ? rental.vehicleType 
+            : 'Standard',
+        
+        customerName: rental.customerName && rental.customerName !== 'Unknown Customer' 
+            ? rental.customerName 
+            : (rental.userName || 'Customer'),
+        
+        customerId: rental.customerId && rental.customerId !== 'unknown' 
+            ? rental.customerId 
+            : 'ID Not Available',
+        
+        pickupLocation: rental.pickupLocation && rental.pickupLocation !== 'Not specified' 
+            ? rental.pickupLocation 
+            : 'Location not provided',
+        
+        returnLocation: rental.returnLocation && rental.returnLocation !== 'Not specified' 
+            ? rental.returnLocation 
+            : (rental.pickupLocation && rental.pickupLocation !== 'Not specified' ? rental.pickupLocation : 'Location not provided')
+    };
+    
+    // Log the final validation for debugging
+    console.log('Final validated rental data before rendering:', {
+        vehicleName: validatedRental.vehicleName,
+        customerName: validatedRental.customerName,
+        customerId: validatedRental.customerId,
+        pickupLocation: validatedRental.pickupLocation,
+        returnLocation: validatedRental.returnLocation
+    });
+    
     const rentalCard = document.createElement('div');
     rentalCard.className = 'rental-card';
-    rentalCard.dataset.returning = rental.isReturningToday ? 'today' : 'later';
+    rentalCard.dataset.returning = validatedRental.isReturningToday ? 'today' : 'later';
     
     // Format dates
-    const pickupDate = new Date(rental.pickupDate);
-    const returnDate = new Date(rental.returnDate);
+    const pickupDate = new Date(validatedRental.pickupDate);
+    const returnDate = new Date(validatedRental.returnDate);
     const formattedPickupDate = formatDate(pickupDate);
     const formattedReturnDate = formatDate(returnDate);
     
     // Determine vehicle icon
-    const isMotorcycle = rental.vehicleType && 
-        (rental.vehicleType.toLowerCase().includes('bike') || 
-         rental.vehicleType.toLowerCase().includes('cruiser') || 
-         rental.vehicleType.toLowerCase().includes('scooter') || 
-         rental.vehicleType.toLowerCase().includes('sports'));
+    const isMotorcycle = validatedRental.vehicleType && 
+        (validatedRental.vehicleType.toLowerCase().includes('bike') || 
+         validatedRental.vehicleType.toLowerCase().includes('cruiser') || 
+         validatedRental.vehicleType.toLowerCase().includes('scooter') || 
+         validatedRental.vehicleType.toLowerCase().includes('sports'));
          
     const vehicleIcon = isMotorcycle ? 'fa-motorcycle' : 'fa-car-alt';
     
     // Create badge based on return time or synthetic booking
     let badgeHTML = '';
-    if (rental.isSyntheticBooking) {
+    if (validatedRental.isSyntheticBooking) {
         badgeHTML = `<span class="rental-badge returning-soon">Auto-generated</span>`;
-    } else if (rental.isReturningInTwoHours) {
-        badgeHTML = `<span class="rental-badge returning-soon">Returning in ${rental.hoursUntilReturn} hour${rental.hoursUntilReturn === 1 ? '' : 's'}</span>`;
-    } else if (rental.isReturningToday) {
+    } else if (validatedRental.isReturningInTwoHours) {
+        badgeHTML = `<span class="rental-badge returning-soon">Returning in ${validatedRental.hoursUntilReturn} hour${validatedRental.hoursUntilReturn === 1 ? '' : 's'}</span>`;
+    } else if (validatedRental.isReturningToday) {
         badgeHTML = `<span class="rental-badge returning-today">Returning Today</span>`;
     }
+    
+    // Format customer ID for display (shorten if too long)
+    const displayCustomerId = validatedRental.customerId === 'ID Not Available' 
+        ? 'ID Not Available' 
+        : (validatedRental.customerId.length > 12 
+            ? validatedRental.customerId.substring(0, 8) + '...' 
+            : validatedRental.customerId);
     
     rentalCard.innerHTML = `
         <div class="rental-header">
@@ -1726,8 +1944,8 @@ function createRentalCard(rental) {
                     <i class="fas ${vehicleIcon}"></i>
                 </div>
                 <div class="rental-vehicle-info">
-                    <h3>${rental.vehicleName || 'Vehicle'}</h3>
-                    <p>${rental.vehicleType || 'Unknown'}</p>
+                    <h3>${validatedRental.vehicleName}</h3>
+                    <p>${validatedRental.vehicleType}</p>
                 </div>
             </div>
             ${badgeHTML}
@@ -1738,8 +1956,8 @@ function createRentalCard(rental) {
                     <i class="fas fa-user"></i>
                 </div>
                 <div class="customer-info">
-                    <h4>${rental.customerName || 'Customer'}</h4>
-                    <p>ID: ${rental.customerId ? (rental.customerId === 'unknown' ? 'Unknown' : rental.customerId.substring(0, 8) + '...') : 'Unknown'}</p>
+                    <h4>${validatedRental.customerName}</h4>
+                    <p class="customer-id">ID: <span class="id-value">${displayCustomerId}</span></p>
                 </div>
             </div>
             
@@ -1759,20 +1977,20 @@ function createRentalCard(rental) {
                 <h4>Locations</h4>
                 <div class="rental-detail-item">
                     <i class="fas fa-map-marker-alt"></i>
-                    <span>Pickup: ${rental.pickupLocation || 'Not specified'}</span>
+                    <span>Pickup: ${validatedRental.pickupLocation}</span>
                 </div>
                 <div class="rental-detail-item">
                     <i class="fas fa-map-marker"></i>
-                    <span>Return: ${rental.returnLocation || rental.pickupLocation || 'Not specified'}</span>
+                    <span>Return: ${validatedRental.returnLocation}</span>
                 </div>
             </div>
             
             <div class="rental-actions">
-                <button class="contact-btn" data-customer-id="${rental.customerId}" ${rental.isSyntheticBooking ? 'disabled' : ''}>
+                <button class="contact-btn" data-customer-id="${validatedRental.customerId}" ${validatedRental.isSyntheticBooking || validatedRental.customerId === 'ID Not Available' ? 'disabled' : ''}>
                     <i class="fas fa-phone-alt"></i>
                     Contact
                 </button>
-                <button class="details-btn" data-booking-id="${rental.bookingId}" ${rental.bookingId === 'unknown' ? 'disabled' : ''}>
+                <button class="details-btn" data-booking-id="${validatedRental.bookingId}" ${validatedRental.bookingId === 'unknown' ? 'disabled' : ''}>
                     <i class="fas fa-info-circle"></i>
                     Details
                 </button>
@@ -1784,23 +2002,303 @@ function createRentalCard(rental) {
     const contactBtn = rentalCard.querySelector('.contact-btn');
     const detailsBtn = rentalCard.querySelector('.details-btn');
     
-    if (!rental.isSyntheticBooking) {
+    if (!validatedRental.isSyntheticBooking && validatedRental.customerId !== 'ID Not Available') {
         contactBtn.addEventListener('click', function() {
             const customerId = this.getAttribute('data-customer-id');
-            showNotification(`Contacting customer ${rental.customerName}...`, 'info');
+            showNotification(`Contacting customer ${validatedRental.customerName}...`, 'info');
             // Implement contact functionality in a real app
         });
     }
     
-    if (rental.bookingId !== 'unknown') {
-        detailsBtn.addEventListener('click', function() {
+    if (validatedRental.bookingId !== 'unknown') {
+        detailsBtn.addEventListener('click', async function() {
             const bookingId = this.getAttribute('data-booking-id');
-            showNotification(`Viewing details for booking ${bookingId.substring(0, 8)}...`, 'info');
-            // Implement details view functionality in a real app
+            showNotification(`Loading details for booking ${bookingId.substring(0, 8)}...`, 'info');
+            
+            try {
+                // Fetch complete booking details
+                const bookingDetails = await fetchFullBookingDetails(bookingId);
+                
+                if (bookingDetails) {
+                    // Create and show the booking details modal
+                    showBookingDetailsModal(bookingDetails);
+                } else {
+                    showNotification('Failed to load booking details', 'error');
+                }
+            } catch (error) {
+                console.error('Error showing booking details:', error);
+                showNotification('Error loading booking details: ' + error.message, 'error');
+            }
         });
     }
     
     return rentalCard;
+}
+
+// Function to fetch full booking details including customer and locations
+async function fetchFullBookingDetails(bookingId) {
+    console.log(`Fetching full booking details for ID: ${bookingId}`);
+    
+    // First get basic booking details
+    const bookingData = await fetchBookingDetails(bookingId);
+    
+    if (!bookingData) {
+        return null;
+    }
+    
+    // Enhanced booking with additional details
+    const enhancedBooking = {...bookingData};
+    
+    // If we need to fetch customer details
+    if (enhancedBooking.userId && (!enhancedBooking.userName || enhancedBooking.userName === 'Unknown Customer')) {
+        try {
+            const customerDetails = await fetchCustomerDetails(enhancedBooking.userId);
+            if (customerDetails) {
+                enhancedBooking.userName = customerDetails.name || 'Customer';
+                enhancedBooking.userEmail = customerDetails.email || '';
+                enhancedBooking.userPhone = customerDetails.phoneNumber || '';
+            }
+        } catch (customerError) {
+            console.error('Error fetching customer details for booking:', customerError);
+        }
+    }
+    
+    // Check for Firebase bookings that might have additional details
+    if (enhancedBooking.firebaseId && (!enhancedBooking.pickupLocation || enhancedBooking.pickupLocation === 'Not specified')) {
+        try {
+            const { ipcRenderer } = require('electron');
+            const response = await ipcRenderer.invoke('api-call', {
+                method: 'GET',
+                url: `/api/bookings/check/${enhancedBooking.firebaseId}`,
+                headers: {
+                    'Accept': 'application/json',
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            
+            if (response.ok && response.data && response.data.exists && response.data.booking) {
+                const firebaseBooking = response.data.booking;
+                
+                // Update missing location info
+                if (firebaseBooking.pickupLocation && !enhancedBooking.pickupLocation) {
+                    enhancedBooking.pickupLocation = firebaseBooking.pickupLocation;
+                }
+                
+                if (firebaseBooking.returnLocation && !enhancedBooking.returnLocation) {
+                    enhancedBooking.returnLocation = firebaseBooking.returnLocation;
+                }
+                
+                // Check for other missing details
+                if (firebaseBooking.userName && !enhancedBooking.userName) {
+                    enhancedBooking.userName = firebaseBooking.userName;
+                }
+            }
+        } catch (firebaseError) {
+            console.error('Error fetching Firebase booking details:', firebaseError);
+        }
+    }
+    
+    return enhancedBooking;
+}
+
+// Function to display booking details modal
+function showBookingDetailsModal(booking) {
+    // Create modal for booking details
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.id = 'bookingDetailsModal';
+    
+    // Format dates for display
+    const pickupDate = new Date(booking.pickupDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    const returnDate = new Date(booking.returnDate).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    
+    // Calculate duration in days
+    const days = Math.ceil(
+        (new Date(booking.returnDate) - new Date(booking.pickupDate)) / (1000 * 60 * 60 * 24)
+    ) || 1;
+    
+    // Format amount
+    const amount = `₹${booking.totalAmount?.toLocaleString() || '0'}`;
+    const dailyRate = `₹${booking.dailyRate?.toLocaleString() || (booking.pricing?.dailyRate?.toLocaleString() || '0')}`;
+    
+    // Format status
+    const statusClass = booking.status?.toLowerCase() || 'confirmed';
+    const statusDisplay = booking.status?.charAt(0).toUpperCase() + booking.status?.slice(1) || 'Confirmed';
+    
+    // Create modal content
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Booking Details</h2>
+                <button class="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="booking-id">
+                    <strong>Booking ID:</strong> ${booking._id || booking.firebaseId || 'N/A'}
+                </div>
+                
+                <div class="booking-details-container">
+                    <div class="booking-vehicle-details">
+                        <div class="vehicle-icon-large">
+                            <i class="fas ${booking.vehicleType?.toLowerCase().includes('scooter') || booking.vehicleType?.toLowerCase().includes('bike') ? 'fa-motorcycle' : 'fa-car'}"></i>
+                        </div>
+                        <h3>${booking.vehicleName || 'Unknown Vehicle'}</h3>
+                        <p class="vehicle-type">${booking.vehicleType || 'Standard'}</p>
+                    </div>
+                    
+                    <div class="booking-info-grid">
+                        <div class="info-item">
+                            <i class="fas fa-calendar-alt"></i>
+                            <div>
+                                <strong>Pickup Date</strong>
+                                <p>${pickupDate}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <i class="fas fa-calendar-check"></i>
+                            <div>
+                                <strong>Return Date</strong>
+                                <p>${returnDate}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <div>
+                                <strong>Location</strong>
+                                <p>${booking.pickupLocation || 'Delhi Central'}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="info-item">
+                            <i class="fas fa-clock"></i>
+                            <div>
+                                <strong>Duration</strong>
+                                <p>${booking.days || days} day(s)</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="price-breakdown">
+                        <h4>Price Details</h4>
+                        <div class="price-item">
+                            <span>Daily Rate:</span>
+                            <span>${dailyRate}</span>
+                        </div>
+                        <div class="price-item">
+                            <span>Duration:</span>
+                            <span>${booking.days || days} day(s)</span>
+                        </div>
+                        <div class="price-item total">
+                            <span>Total Amount:</span>
+                            <span>${amount}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="booking-status-large">
+                        <span class="status-badge status-${statusClass}">${statusDisplay}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                ${booking.status === 'confirmed' ? `<button id="cancelBookingBtn" class="cancel-booking-btn">Cancel Booking</button>` : ''}
+                <button class="close-modal-btn">Close</button>
+            </div>
+        </div>
+    `;
+    
+    // Add modal to the document
+    document.body.appendChild(modal);
+    
+    // Show the modal
+    setTimeout(() => {
+        modal.classList.add('show');
+    }, 10);
+    
+    // Add event listeners
+    const closeButtons = modal.querySelectorAll('.close-modal, .close-modal-btn');
+    closeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        });
+    });
+    
+    // Add cancel button event listener
+    const cancelButton = modal.querySelector('#cancelBookingBtn');
+    if (cancelButton) {
+        cancelButton.addEventListener('click', () => {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+                handleCancelBooking(booking._id);
+            }, 300);
+        });
+    }
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.remove();
+            }, 300);
+        }
+    });
+}
+
+// Function to handle booking cancellation
+async function handleCancelBooking(bookingId) {
+    if (!bookingId) {
+        showNotification('Invalid booking ID', 'error');
+        return;
+    }
+    
+    if (!confirm('Are you sure you want to cancel this booking?')) {
+        return;
+    }
+    
+    showNotification('Cancelling booking...', 'info');
+    
+    try {
+        const { ipcRenderer } = require('electron');
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'PUT',
+            url: `/api/bookings/${bookingId}/status`,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({ status: 'cancelled' })
+        });
+        
+        if (response.ok) {
+            showNotification('Booking cancelled successfully', 'success');
+            // Reload current rentals to reflect the changes
+            setTimeout(() => {
+                loadCurrentRentals();
+            }, 1000);
+        } else {
+            showNotification('Failed to cancel booking: ' + (response.error || 'Unknown error'), 'error');
+        }
+    } catch (error) {
+        console.error('Error cancelling booking:', error);
+        showNotification('Error cancelling booking: ' + error.message, 'error');
+    }
 }
 
 // Setup rental filters
@@ -1854,4 +2352,76 @@ function formatDate(date) {
 function getDaysBetween(startDate, endDate) {
     const millisecondsPerDay = 24 * 60 * 60 * 1000;
     return Math.round(Math.abs((endDate - startDate) / millisecondsPerDay));
+}
+
+// Helper function to fetch customer details directly if not provided by the API
+async function fetchCustomerDetails(customerId) {
+    if (!customerId || customerId === 'unknown') {
+        return null;
+    }
+    
+    console.log(`Fetching customer details for ID: ${customerId}`);
+    const { ipcRenderer } = require('electron');
+    
+    try {
+        // Create a unique cache buster
+        const timestamp = new Date().getTime();
+        
+        // Make API call to fetch customer details
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/customers/${customerId}?nocache=${timestamp}`,
+            headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache'
+            }
+        });
+        
+        if (response.ok && response.data) {
+            console.log(`Successfully fetched customer details for ID ${customerId}:`, response.data);
+            return response.data;
+        } else {
+            console.warn(`Failed to fetch customer details for ID ${customerId}:`, response.error || 'Unknown error');
+            return null;
+        }
+    } catch (error) {
+        console.error(`Error fetching customer details for ID ${customerId}:`, error);
+        return null;
+    }
+}
+
+// Helper function to fetch booking details directly if needed
+async function fetchBookingDetails(bookingId) {
+    if (!bookingId || bookingId === 'unknown') {
+        return null;
+    }
+    
+    console.log(`Fetching booking details for ID: ${bookingId}`);
+    const { ipcRenderer } = require('electron');
+    
+    try {
+        // Create a unique cache buster
+        const timestamp = new Date().getTime();
+        
+        // Make API call to fetch booking details
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/${bookingId}?nocache=${timestamp}`,
+            headers: {
+                'Accept': 'application/json',
+                'Cache-Control': 'no-cache'
+            }
+        });
+        
+        if (response.ok && response.data) {
+            console.log(`Successfully fetched booking details for ID ${bookingId}:`, response.data);
+            return response.data;
+        } else {
+            console.warn(`Failed to fetch booking details for ID ${bookingId}:`, response.error || 'Unknown error');
+            return null;
+        }
+    } catch (error) {
+        console.error(`Error fetching booking details for ID ${bookingId}:`, error);
+        return null;
+    }
 } 
