@@ -619,7 +619,12 @@ async function loadUserData() {
                 userNameElement.textContent = userData.name;
             }
             
-            // Update profile fields if they exist
+            // Check if profile section is active or visible
+            const profileSection = document.getElementById('profile');
+            const isProfileActive = profileSection && profileSection.classList.contains('active');
+            
+            // Always update profile fields if they exist, regardless of which section is active
+            // This ensures the profile data is ready when user navigates to profile section
             updateProfileFields(userData);
             
             // Update user metrics (this will now fetch bookings and update dashboard)
@@ -630,7 +635,7 @@ async function loadUserData() {
             if (dashboardSection && dashboardSection.classList.contains('active')) {
                 loadBookingHistory(user.uid);
             }
-                } else {
+        } else {
             console.warn('User document does not exist in Firestore');
             showNotification('User profile could not be loaded completely', 'warning');
             
@@ -674,7 +679,46 @@ function updateProfileFields(userData) {
     const stateInput = document.getElementById('state');
     if (stateInput && userData.state) stateInput.value = userData.state;
     
-    const postalCodeInput = document.getElementById('postalCode').value = userData.postalCode;
+    const postalCodeInput = document.getElementById('postalCode');
+    if (postalCodeInput && userData.postalCode) postalCodeInput.value = userData.postalCode;
+    
+    // Update profile header elements
+    const user = firebase.auth().currentUser;
+    if (user) {
+        // Update profile name in header
+        const profileNameElement = document.getElementById('profileName');
+        if (profileNameElement) {
+            profileNameElement.textContent = userData.name || user.displayName || user.email.split('@')[0];
+        }
+        
+        // Update profile email in header
+        const profileEmailElement = document.getElementById('profileEmail');
+        if (profileEmailElement) {
+            profileEmailElement.textContent = user.email;
+        }
+        
+        // Update member since date in header
+        const memberSinceElement = document.getElementById('memberSince');
+        if (memberSinceElement) {
+            // If createdAt is available in userData, use it, otherwise fall back to user.metadata.creationTime
+            let creationDate;
+            if (userData.createdAt) {
+                creationDate = userData.createdAt.toDate();
+            } else if (user.metadata && user.metadata.creationTime) {
+                creationDate = new Date(user.metadata.creationTime);
+            } else {
+                creationDate = new Date(); // Fallback to current date if neither is available
+            }
+            
+            // Format date as month and year (e.g., "January 2023")
+            const formattedDate = creationDate.toLocaleDateString('en-US', { 
+                month: 'long', 
+                year: 'numeric'
+            });
+            
+            memberSinceElement.textContent = formattedDate;
+        }
+    }
 }
 
 // Update user metrics in the dashboard
@@ -1312,6 +1356,15 @@ function handleProfileUpdate() {
             userNameElements.forEach(element => {
                 element.textContent = fullName;
             });
+            
+            // Update profile email if it exists
+            const profileEmailElement = document.getElementById('profileEmail');
+            if (profileEmailElement) {
+                const currentUser = getCurrentUser();
+                if (currentUser && currentUser.email) {
+                    profileEmailElement.textContent = currentUser.email;
+                }
+            }
         })
         .catch((error) => {
             console.error("Error updating profile:", error);
@@ -1376,8 +1429,22 @@ function handlePasswordStrength() {
     const numberCheck = document.getElementById('number-check');
     const specialCheck = document.getElementById('special-check');
     
-    newPasswordInput.addEventListener('input', () => {
-        const password = newPasswordInput.value;
+    if (!newPasswordInput || !strengthBar || !strengthText) {
+        console.error('Password strength elements not found');
+        return;
+    }
+    
+    // Immediately handle the current value on initialization
+    // This fixes cases where the input might already have a value
+    updatePasswordStrength(newPasswordInput.value);
+    
+    // Add event listener for input changes
+    newPasswordInput.addEventListener('input', (e) => {
+        updatePasswordStrength(e.target.value);
+    });
+    
+    // Function to handle strength calculation and UI updates
+    function updatePasswordStrength(password) {
         let strength = 0;
         
         // Update requirement checks
@@ -1387,11 +1454,12 @@ function handlePasswordStrength() {
         const hasNumber = /[0-9]/.test(password);
         const hasSpecial = /[^A-Za-z0-9]/.test(password);
         
-        updateRequirementCheck(lengthCheck, hasLength);
-        updateRequirementCheck(uppercaseCheck, hasUppercase);
-        updateRequirementCheck(lowercaseCheck, hasLowercase);
-        updateRequirementCheck(numberCheck, hasNumber);
-        updateRequirementCheck(specialCheck, hasSpecial);
+        // Check if elements exist before updating
+        if (lengthCheck) updateRequirementCheck(lengthCheck, hasLength);
+        if (uppercaseCheck) updateRequirementCheck(uppercaseCheck, hasUppercase);
+        if (lowercaseCheck) updateRequirementCheck(lowercaseCheck, hasLowercase);
+        if (numberCheck) updateRequirementCheck(numberCheck, hasNumber);
+        if (specialCheck) updateRequirementCheck(specialCheck, hasSpecial);
         
         // Calculate strength
         if (hasLength) strength += 20;
@@ -1404,7 +1472,11 @@ function handlePasswordStrength() {
         strengthBar.style.width = strength + '%';
         
         // Update strength text and color
-        if (strength <= 20) {
+        if (password.length === 0) {
+            strengthBar.style.backgroundColor = '#f1f1f1'; // Gray
+            strengthText.textContent = 'None';
+            strengthText.style.color = 'var(--text-light)';
+        } else if (strength <= 20) {
             strengthBar.style.backgroundColor = '#ff4d4d'; // Red
             strengthText.textContent = 'Very Weak';
             strengthText.style.color = '#ff4d4d';
@@ -1425,7 +1497,7 @@ function handlePasswordStrength() {
             strengthText.textContent = 'Strong';
             strengthText.style.color = '#00cc00';
         }
-    });
+    }
 }
 
 // Update requirement check icons
@@ -1443,9 +1515,22 @@ function updateRequirementCheck(element, isValid) {
 
 // Handle password change
 function handlePasswordChange() {
+    console.log('Initializing password change functionality');
+    
     const changePasswordBtn = document.getElementById('changePasswordBtn');
     
-    changePasswordBtn.addEventListener('click', () => {
+    if (!changePasswordBtn) {
+        console.error('Change password button not found');
+        return;
+    }
+    
+    // Remove any existing listeners to prevent duplicates
+    const newChangeBtn = changePasswordBtn.cloneNode(true);
+    changePasswordBtn.parentNode.replaceChild(newChangeBtn, changePasswordBtn);
+    
+    newChangeBtn.addEventListener('click', () => {
+        console.log('Change password button clicked');
+        
         const currentUser = getCurrentUser();
         
         if (!currentUser) {
@@ -1479,57 +1564,81 @@ function handlePasswordChange() {
         }
         
         // Show loading state
-        changePasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
-        changePasswordBtn.disabled = true;
+        newChangeBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+        newChangeBtn.disabled = true;
         
         // Reauthenticate before changing password
-        const credential = firebase.auth.EmailAuthProvider.credential(
-            currentUser.email,
-            currentPassword
-        );
-        
-        currentUser.reauthenticateWithCredential(credential)
-            .then(() => {
-                // User reauthenticated, now change password
-                return currentUser.updatePassword(newPassword);
-            })
-            .then(() => {
-                showNotification("Password updated successfully!", "success");
+        try {
+            console.log('Creating credential for reauthentication');
+            
+            // Make sure Firebase auth is properly initialized
+            const auth = firebase.auth();
+            if (!auth) {
+                console.error('Firebase auth not available');
+                showNotification("Authentication service unavailable. Please try again later.", "error");
                 
-                // Clear password fields
-                document.getElementById('currentPassword').value = '';
-                document.getElementById('newPassword').value = '';
-                document.getElementById('confirmPassword').value = '';
-                
-                // Reset password strength indicator
-                document.getElementById('passwordStrengthBar').style.width = '0';
-                document.getElementById('passwordStrengthText').textContent = 'None';
-                document.getElementById('passwordStrengthText').style.color = 'var(--text-light)';
-                
-                // Reset requirement checks
-                const requirements = document.querySelectorAll('.requirements-list li');
-                requirements.forEach(item => {
-                    const icon = item.querySelector('i');
-                    icon.className = 'fas fa-circle';
-                    item.style.color = 'var(--text-light)';
-                });
-            })
-            .catch((error) => {
-                console.error("Error updating password:", error);
-                
-                if (error.code === 'auth/wrong-password') {
-                    showNotification("Current password is incorrect.", "error");
-                } else if (error.code === 'auth/weak-password') {
-                    showNotification("New password is too weak.", "error");
-                } else {
-                    showNotification("Failed to update password. Please try again.", "error");
-                }
-            })
-            .finally(() => {
                 // Reset button state
-                changePasswordBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Update Password';
-                changePasswordBtn.disabled = false;
-            });
+                newChangeBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Update Password';
+                newChangeBtn.disabled = false;
+                return;
+            }
+            
+            const credential = firebase.auth.EmailAuthProvider.credential(
+                currentUser.email,
+                currentPassword
+            );
+            
+            console.log('Attempting to reauthenticate user');
+            
+            currentUser.reauthenticateWithCredential(credential)
+                .then(() => {
+                    console.log('User reauthenticated successfully, updating password');
+                    // User reauthenticated, now change password
+                    return currentUser.updatePassword(newPassword);
+                })
+                .then(() => {
+                    showNotification("Password updated successfully!", "success");
+                    
+                    // Clear password fields
+                    document.getElementById('currentPassword').value = '';
+                    document.getElementById('newPassword').value = '';
+                    document.getElementById('confirmPassword').value = '';
+                    
+                    // Reset password strength indicator
+                    document.getElementById('passwordStrengthBar').style.width = '0';
+                    document.getElementById('passwordStrengthText').textContent = 'None';
+                    document.getElementById('passwordStrengthText').style.color = 'var(--text-light)';
+                    
+                    // Reset requirement checks
+                    const requirements = document.querySelectorAll('.requirements-list li');
+                    requirements.forEach(item => {
+                        const icon = item.querySelector('i');
+                        icon.className = 'fas fa-circle';
+                        item.style.color = 'var(--text-light)';
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error updating password:", error);
+                    
+                    if (error.code === 'auth/wrong-password') {
+                        showNotification("Current password is incorrect.", "error");
+                    } else if (error.code === 'auth/weak-password') {
+                        showNotification("New password is too weak.", "error");
+                    } else {
+                        showNotification("Failed to update password. Please try again.", "error");
+                    }
+                })
+                .finally(() => {
+                    // Reset button state
+                    newChangeBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Update Password';
+                    newChangeBtn.disabled = false;
+                });
+        } catch (error) {
+            console.error('Error reauthenticating user:', error);
+            showNotification('Error reauthenticating user: ' + error.message, 'error');
+            newChangeBtn.innerHTML = '<i class="fas fa-shield-alt"></i> Update Password';
+            newChangeBtn.disabled = false;
+        }
     });
 }
 
@@ -1556,7 +1665,7 @@ function handleStarRating() {
             stars.forEach((s, index) => {
                 if (index < rating) {
                     s.className = 'fas fa-star';
-                } else {
+        } else {
                     s.className = 'far fa-star';
                 }
             });
@@ -3475,6 +3584,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 }
                 
+                // For navigation to profile tab, ensure profile data is fresh
+                const profileNavItem = document.querySelector('.nav-item[data-section="profile"]');
+                if (profileNavItem) {
+                    profileNavItem.addEventListener('click', () => {
+                        // Reload user data to ensure profile is up-to-date
+                        loadUserData();
+                    });
+                }
+                
                 // Set up a timer to refresh dashboard data every 30 seconds if dashboard tab is active
                 setInterval(() => {
                     const dashboardSection = document.getElementById('dashboard');
@@ -3609,8 +3727,23 @@ function setupEventListeners() {
                     loadBookingHistory(user.uid);
                 }
             }
+            
+            // Initialize password handlers when profile section is selected
+            if (sectionId === 'profile') {
+                handlePasswordToggles();
+                handlePasswordStrength();
+                handlePasswordChange();
+            }
         });
     });
+    
+    // Initialize password-related functions for initial page load
+    // This ensures they work even if user directly navigates to profile section
+    if (document.getElementById('newPassword')) {
+        handlePasswordToggles();
+        handlePasswordStrength();
+        handlePasswordChange();
+    }
     
     // Handle logout
     const logoutBtn = document.getElementById('logoutBtn');
