@@ -21,6 +21,14 @@ const reviewSchema = new mongoose.Schema({
         ref: 'Booking',
         required: true
     },
+    firebaseId: {
+        type: String,
+        index: true
+    },
+    userId: {
+        type: String,
+        index: true
+    },
     rating: {
         type: Number,
         required: true,

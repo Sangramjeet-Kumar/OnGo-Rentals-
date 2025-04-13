@@ -1556,7 +1556,7 @@ function handleStarRating() {
             stars.forEach((s, index) => {
                 if (index < rating) {
                     s.className = 'fas fa-star';
-                } else {
+        } else {
                     s.className = 'far fa-star';
                 }
             });
@@ -1584,61 +1584,71 @@ function updateStars(stars, rating) {
 // Handle review submission
 function handleReviewSubmission() {
     const submitReviewBtn = document.getElementById('submitReviewBtn');
+    const ratingStars = document.getElementById('ratingStars');
+    const reviewComments = document.getElementById('reviewComments');
+    const reviewRentalSelect = document.getElementById('reviewRental');
     
-    submitReviewBtn.addEventListener('click', () => {
-        const currentUser = getCurrentUser();
-        
-        if (!currentUser) {
-            showNotification("You must be logged in to submit a review.", "error");
-            return;
-        }
-        
-        const rentalId = document.getElementById('reviewRental').value;
-        const rating = document.getElementById('selectedRating').value;
-        const comments = document.getElementById('reviewComments').value;
-        
-        // Validate inputs
-        if (!rentalId) {
-            showNotification("Please select a rental to review.", "error");
-            return;
-        }
-        
-        if (rating === "0") {
-            showNotification("Please select a rating.", "error");
-            return;
-        }
-        
-        if (!comments) {
-            showNotification("Please share your experience in the comments.", "error");
-            return;
-        }
-        
-        // Show loading state
-        submitReviewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-        submitReviewBtn.disabled = true;
-        
-        // Submit review to Firestore
-        db.collection('reviews').add({
-            userId: currentUser.uid,
-            rentalId: rentalId,
-            rating: parseInt(rating),
-            comments: comments,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        })
-        .then(() => {
+    // Set up star rating functionality
+    setupStarRating();
+    
+    // Load available rentals for review
+    loadCompletedRentalsForReview();
+    
+    submitReviewBtn.addEventListener('click', async () => {
+        try {
+            const currentUser = getCurrentUser();
+            
+            if (!currentUser) {
+                showNotification("You must be logged in to submit a review.", "error");
+                return;
+            }
+            
+            const rentalId = reviewRentalSelect.value;
+            const rating = document.getElementById('selectedRating').value;
+            const comments = reviewComments.value;
+            
+            // Validate inputs
+            if (!rentalId) {
+                showNotification("Please select a rental to review.", "error");
+                return;
+            }
+            
+            if (rating === "0") {
+                showNotification("Please select a rating.", "error");
+                return;
+            }
+            
+            if (!comments) {
+                showNotification("Please share your experience in the comments.", "error");
+                return;
+            }
+            
+            // Show loading state
+            submitReviewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+            submitReviewBtn.disabled = true;
+            
+            // Submit directly to Firebase for now since MongoDB has connection issues
+            // Submit review to Firestore
+            await db.collection('reviews').add({
+                userId: currentUser.uid,
+                rentalId: rentalId,
+                rating: parseInt(rating),
+                comments: comments,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            
             // Update the rental with the review info
-            return db.collection('rentals').doc(rentalId).update({
+            await db.collection('rentals').doc(rentalId).update({
                 hasReview: true,
                 rating: parseInt(rating)
             });
-        })
-        .then(() => {
+            
             showNotification("Review submitted successfully!", "success");
             
             // Reset form
-            document.getElementById('reviewRental').value = '';
+            reviewRentalSelect.value = '';
             document.getElementById('selectedRating').value = '0';
-            document.getElementById('reviewComments').value = '';
+            reviewComments.value = '';
             
             // Reset stars
             const stars = document.querySelectorAll('#ratingStars i');
@@ -1646,21 +1656,139 @@ function handleReviewSubmission() {
             
             // Refresh reviews list
             loadUserReviews();
-        })
-        .catch((error) => {
+            
+            // Reload completed rentals for review
+            loadCompletedRentalsForReview();
+        } catch (error) {
             console.error("Error submitting review:", error);
-            showNotification("Failed to submit review. Please try again.", "error");
-        })
-        .finally(() => {
+            showNotification("Failed to submit review: " + error.message, "error");
+        } finally {
             // Reset button state
             submitReviewBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Review';
             submitReviewBtn.disabled = false;
+        }
+    });
+}
+
+// Set up star rating functionality
+function setupStarRating() {
+    const ratingStars = document.querySelectorAll('#ratingStars i');
+    const selectedRating = document.getElementById('selectedRating');
+    
+    ratingStars.forEach(star => {
+        star.addEventListener('mouseover', () => {
+            const rating = parseInt(star.getAttribute('data-rating'));
+            updateStars(ratingStars, rating);
+        });
+        
+        star.addEventListener('mouseleave', () => {
+            const currentRating = parseInt(selectedRating.value);
+            updateStars(ratingStars, currentRating);
+        });
+        
+        star.addEventListener('click', () => {
+            const rating = parseInt(star.getAttribute('data-rating'));
+            selectedRating.value = rating;
+            updateStars(ratingStars, rating);
         });
     });
 }
 
+// Update stars display based on rating
+function updateStars(stars, rating) {
+    stars.forEach(star => {
+        const starRating = parseInt(star.getAttribute('data-rating'));
+        if (starRating <= rating) {
+            star.classList.remove('far');
+            star.classList.add('fas');
+        } else {
+            star.classList.remove('fas');
+            star.classList.add('far');
+        }
+    });
+}
+
+// Load completed rentals for review
+async function loadCompletedRentalsForReview() {
+    const currentUser = getCurrentUser();
+    const rentalSelect = document.getElementById('reviewRental');
+    
+    if (!currentUser) {
+        return;
+    }
+    
+    try {
+        // Clear current options except the default
+        while (rentalSelect.options.length > 1) {
+            rentalSelect.remove(1);
+        }
+        
+        // Show loading option
+        const loadingOption = document.createElement('option');
+        loadingOption.text = 'Loading rentals...';
+        loadingOption.disabled = true;
+        rentalSelect.add(loadingOption);
+        
+        // Get the user's completed rentals from MongoDB API
+        const { ipcRenderer } = require('electron');
+        
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/user/${currentUser.uid}`
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load bookings: ' + (response.error || 'Unknown error'));
+        }
+        
+        const bookings = response.data || [];
+        
+        // Remove loading option
+        rentalSelect.remove(rentalSelect.options.length - 1);
+        
+        // Filter for completed bookings without reviews
+        const completedBookings = bookings.filter(booking => 
+            booking.status === 'completed' && !booking.hasReview
+        );
+        
+        if (completedBookings.length === 0) {
+            const option = document.createElement('option');
+            option.text = 'No completed rentals available for review';
+            option.disabled = true;
+            rentalSelect.add(option);
+            return;
+        }
+        
+        // Add each rental as an option
+        completedBookings.forEach(booking => {
+            // Format dates
+            const pickupDate = new Date(booking.pickupDate);
+            const returnDate = new Date(booking.returnDate);
+            
+            const formattedDates = `${pickupDate.toLocaleDateString()} - ${returnDate.toLocaleDateString()}`;
+            
+            const option = document.createElement('option');
+            option.value = booking._id;
+            option.text = `${booking.vehicleType || 'Vehicle'} (${formattedDates})`;
+            rentalSelect.add(option);
+        });
+    } catch (error) {
+        console.error('Error loading rentals for review:', error);
+        
+        // Clear loading option
+        while (rentalSelect.options.length > 1) {
+            rentalSelect.remove(1);
+        }
+        
+        const errorOption = document.createElement('option');
+        errorOption.text = 'Error loading rentals';
+        errorOption.disabled = true;
+        rentalSelect.add(errorOption);
+    }
+}
+
 // Load user reviews
-function loadUserReviews() {
+async function loadUserReviews() {
     const currentUser = getCurrentUser();
     const reviewsList = document.getElementById('userReviewsList');
     
@@ -1668,89 +1796,87 @@ function loadUserReviews() {
         return;
     }
     
-    // Clear current content
-    reviewsList.innerHTML = '<div class="loading-reviews"><i class="fas fa-spinner fa-spin"></i><p>Loading your reviews...</p></div>';
-    
-    // Get user's reviews from Firestore
-    db.collection('reviews')
-        .where('userId', '==', currentUser.uid)
-        .orderBy('createdAt', 'desc')
-        .get()
-        .then((querySnapshot) => {
-            if (querySnapshot.empty) {
-                reviewsList.innerHTML = `
-                    <div class="empty-reviews">
-                        <i class="fas fa-comment-slash"></i>
-                        <p>You haven't submitted any reviews yet</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            // Clear loading state
-            reviewsList.innerHTML = '';
-            
-            // Process each review
-            querySnapshot.forEach((doc) => {
-                const reviewData = doc.data();
-                
-                // Get rental details
-                db.collection('rentals').doc(reviewData.rentalId).get()
-                    .then((rentalDoc) => {
-                        if (rentalDoc.exists) {
-                            const rentalData = rentalDoc.data();
-                            const vehicleType = rentalData.vehicleType || 'Vehicle';
-                            
-                            // Format date
-                            const reviewDate = reviewData.createdAt.toDate();
-                            const formattedDate = reviewDate.toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                            });
-                            
-                            // Create stars HTML
-                            let starsHTML = '';
-                            for (let i = 1; i <= 5; i++) {
-                                if (i <= reviewData.rating) {
-                                    starsHTML += '<i class="fas fa-star"></i>';
-                                } else {
-                                    starsHTML += '<i class="far fa-star"></i>';
-                                }
-                            }
-                            
-                            // Create review item
-                            const reviewItem = document.createElement('div');
-                            reviewItem.className = 'review-item';
-                            reviewItem.innerHTML = `
-                                <div class="review-item-header">
-                                    <div class="review-car">${vehicleType}</div>
-                                    <div class="review-date">${formattedDate}</div>
-                                </div>
-                                <div class="review-rating">
-                                    ${starsHTML}
-                                </div>
-                                <p class="review-comment">${reviewData.comments}</p>
-                            `;
-                            
-                            // Add to list
-                            reviewsList.appendChild(reviewItem);
-                        }
-                    })
-                    .catch((error) => {
-                        console.error("Error getting rental:", error);
-                    });
-            });
-        })
-        .catch((error) => {
-            console.error("Error loading reviews:", error);
+    try {
+        // Clear current content
+        reviewsList.innerHTML = '<div class="loading-reviews"><i class="fas fa-spinner fa-spin"></i><p>Loading your reviews...</p></div>';
+        
+        // Get user's reviews from MongoDB API
+        const { ipcRenderer } = require('electron');
+        
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/reviews/user/${currentUser.uid}`
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to load reviews: ' + (response.error || 'Unknown error'));
+        }
+        
+        const reviews = response.data || [];
+        
+        if (reviews.length === 0) {
             reviewsList.innerHTML = `
                 <div class="empty-reviews">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <p>Failed to load reviews. Please try again.</p>
+                    <i class="fas fa-comment-slash"></i>
+                    <p>You haven't submitted any reviews yet</p>
                 </div>
             `;
+            return;
+        }
+        
+        // Clear loading state
+        reviewsList.innerHTML = '';
+        
+        // Process each review
+        reviews.forEach(review => {
+            // Get vehicle details from the populated data
+            const vehicle = review.vehicleId || {};
+            const vehicleType = `${vehicle.make || ''} ${vehicle.model || ''} ${vehicle.year || ''}`.trim() || 'Vehicle';
+            
+            // Format date
+            const reviewDate = new Date(review.createdAt);
+            const formattedDate = reviewDate.toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+            
+            // Create stars HTML
+            let starsHTML = '';
+            for (let i = 1; i <= 5; i++) {
+                if (i <= review.rating) {
+                    starsHTML += '<i class="fas fa-star"></i>';
+                } else {
+                    starsHTML += '<i class="far fa-star"></i>';
+                }
+            }
+            
+            // Create review item
+            const reviewItem = document.createElement('div');
+            reviewItem.className = 'review-item';
+            reviewItem.innerHTML = `
+                <div class="review-item-header">
+                    <div class="review-car">${vehicleType}</div>
+                    <div class="review-date">${formattedDate}</div>
+                </div>
+                <div class="review-rating">
+                    ${starsHTML}
+                </div>
+                <p class="review-comment">${review.comment}</p>
+            `;
+            
+            // Add to list
+            reviewsList.appendChild(reviewItem);
         });
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        reviewsList.innerHTML = `
+            <div class="empty-reviews">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Failed to load reviews: ${error.message}</p>
+            </div>
+        `;
+    }
 }
 
 // Load rental options for review
@@ -3475,6 +3601,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                     });
                 }
                 
+                // Initialize review functionality if we're on the reviews tab
+                const reviewsSection = document.getElementById('reviews');
+                if (reviewsSection && reviewsSection.classList.contains('active')) {
+                    handleReviewSubmission();
+                    loadUserReviews();
+                }
+                
                 // Set up a timer to refresh dashboard data every 30 seconds if dashboard tab is active
                 setInterval(() => {
                     const dashboardSection = document.getElementById('dashboard');
@@ -3608,6 +3741,15 @@ function setupEventListeners() {
                 if (user) {
                     loadBookingHistory(user.uid);
                 }
+            }
+            
+            // Load reviews section if reviews is selected
+            if (sectionId === 'reviews') {
+                // Initialize review functionality
+                handleReviewSubmission();
+                
+                // Load user's reviews
+                loadUserReviews();
             }
         });
     });

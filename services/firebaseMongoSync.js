@@ -5,6 +5,8 @@ const Admin = require('../models/Admin');
 const Vehicle = require('../models/Vehicle');
 const Review = require('../models/Review');
 const connectDB = require('../config/db');
+const mongoose = require('mongoose');
+const Booking = require('../models/Booking');
 
 // Initialize MongoDB connection
 connectDB();
@@ -182,25 +184,69 @@ const syncReviewsToMongo = async () => {
             .get();
         
         for (const doc of reviewsSnapshot.docs) {
-            const reviewData = doc.data();
-            
-            // Update or create review in MongoDB
-            await Review.findOneAndUpdate(
-                { _id: doc.id },
-                {
-                    userId: reviewData.userId,
-                    bookingId: reviewData.bookingId,
-                    vehicleId: reviewData.vehicleId,
-                    agentId: reviewData.agentId,
-                    rating: reviewData.rating,
-                    comment: reviewData.comment,
-                    images: reviewData.images || [],
-                    status: reviewData.status || 'pending',
-                    updatedAt: new Date()
-                },
-                { upsert: true, new: true }
-            );
-            console.log(`Synced review: ${doc.id}`);
+            try {
+                const reviewData = doc.data();
+                
+                // Find customer by Firebase UID
+                let customerId = null;
+                const customer = await Customer.findOne({ firebaseUID: reviewData.userId });
+                if (customer) {
+                    customerId = customer._id;
+                }
+                
+                // Find vehicle by Firestore ID
+                let vehicleId = null;
+                let agentId = null;
+                
+                if (reviewData.vehicleId) {
+                    // Try to find the vehicle
+                    const vehicle = await Vehicle.findOne({ firebaseId: reviewData.vehicleId });
+                    if (vehicle) {
+                        vehicleId = vehicle._id;
+                        agentId = vehicle.agentId;
+                    }
+                }
+                
+                // Skip if we can't find required references
+                if (!customerId || !vehicleId) {
+                    console.log(`Skipping review ${doc.id} - missing required references`);
+                    continue;
+                }
+                
+                // Find booking by Firestore ID
+                let bookingId = null;
+                if (reviewData.rentalId) {
+                    const booking = await Booking.findOne({ firebaseId: reviewData.rentalId });
+                    if (booking) {
+                        bookingId = booking._id;
+                    }
+                }
+                
+                // Create a unique MongoDB-compatible ID from Firebase ID
+                const mongoId = new mongoose.Types.ObjectId();
+                
+                // Update or create review in MongoDB with a new ID
+                await Review.findOneAndUpdate(
+                    { firebaseId: doc.id },
+                    {
+                        _id: mongoId,
+                        firebaseId: doc.id,
+                        customerId: customerId,
+                        vehicleId: vehicleId,
+                        agentId: agentId,
+                        bookingId: bookingId,
+                        rating: reviewData.rating,
+                        comment: reviewData.comments || reviewData.comment,
+                        status: reviewData.status || 'pending',
+                        createdAt: reviewData.createdAt ? new Date(reviewData.createdAt.toDate()) : new Date(),
+                        updatedAt: new Date()
+                    },
+                    { upsert: true, new: true }
+                );
+                console.log(`Synced review: ${doc.id}`);
+            } catch (error) {
+                console.error(`Error syncing review ${doc.id}:`, error);
+            }
         }
         console.log('Review sync completed');
     } catch (error) {
@@ -382,14 +428,14 @@ const setupRealtimeSync = () => {
                 try {
                     if (change.type === 'added' || change.type === 'modified') {
                         await Review.findOneAndUpdate(
-                            { _id: uid },
+                            { firebaseId: uid },
                             {
                                 userId: reviewData.userId,
                                 bookingId: reviewData.bookingId,
                                 vehicleId: reviewData.vehicleId,
                                 agentId: reviewData.agentId,
                                 rating: reviewData.rating,
-                                comment: reviewData.comment,
+                                comment: reviewData.comment || reviewData.comments,
                                 images: reviewData.images || [],
                                 status: reviewData.status || 'pending',
                                 updatedAt: new Date()
@@ -398,7 +444,7 @@ const setupRealtimeSync = () => {
                         );
                         console.log(`Real-time sync - Updated review: ${uid}`);
                     } else if (change.type === 'removed') {
-                        await Review.deleteOne({ _id: uid });
+                        await Review.deleteOne({ firebaseId: uid });
                         console.log(`Real-time sync - Deleted review: ${uid}`);
                     }
                 } catch (error) {

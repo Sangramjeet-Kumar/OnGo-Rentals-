@@ -4,6 +4,7 @@ const Vehicle = require('../models/Vehicle');
 const Agent = require('../models/Agent');
 const Booking = require('../models/Booking');
 const Customer = require('../models/Customer');
+const Review = require('../models/Review');
 const mongoose = require('mongoose');
 
 // IMPORTANT: Order matters - put more specific routes before less specific ones
@@ -1503,6 +1504,202 @@ router.get('/bookings/firebase', async (req, res) => {
         res.status(500).json({ 
             message: 'Server error while fetching Firebase bookings', 
             error: error.message
+        });
+    }
+});
+
+// POST create a new review
+router.post('/reviews', async (req, res) => {
+    try {
+        const { userId, bookingId, vehicleId, rating, comment } = req.body;
+        
+        if (!userId || !bookingId || !vehicleId || !rating || !comment) {
+            return res.status(400).json({
+                message: 'All fields are required: userId, bookingId, vehicleId, rating, comment'
+            });
+        }
+        
+        console.log(`Creating review for vehicle: ${vehicleId}, booking: ${bookingId}, user: ${userId}`);
+        
+        // Get the booking to verify and get agent information
+        const booking = await Booking.findById(bookingId);
+        
+        if (!booking) {
+            return res.status(404).json({
+                message: 'Booking not found'
+            });
+        }
+        
+        // Check if this booking already has a review
+        const existingReview = await Review.findOne({ bookingId });
+        
+        if (existingReview) {
+            return res.status(400).json({
+                message: 'A review already exists for this booking'
+            });
+        }
+        
+        // Verify the booking belongs to this user
+        if (booking.userId !== userId) {
+            return res.status(403).json({
+                message: 'You do not have permission to review this booking'
+            });
+        }
+        
+        // Convert string IDs to ObjectId if necessary for MongoDB relations
+        let mongoVehicleId = vehicleId;
+        if (mongoose.Types.ObjectId.isValid(vehicleId)) {
+            mongoVehicleId = new mongoose.Types.ObjectId(vehicleId);
+        }
+        
+        // Get the customer ID from MongoDB
+        let customerId;
+        const customer = await Customer.findOne({ firebaseUID: userId });
+        
+        if (customer) {
+            customerId = customer._id;
+        } else {
+            // Create a new customer if not exists
+            const newCustomer = new Customer({
+                firebaseUID: userId,
+                email: booking.userEmail || 'unknown@email.com',
+                name: booking.userName || 'Unknown User',
+                phoneNumber: booking.userPhone || '0000000000'
+            });
+            
+            const savedCustomer = await newCustomer.save();
+            customerId = savedCustomer._id;
+        }
+        
+        // Get the agent ID from the vehicle
+        const vehicle = await Vehicle.findById(mongoVehicleId);
+        
+        if (!vehicle) {
+            return res.status(404).json({
+                message: 'Vehicle not found'
+            });
+        }
+        
+        const agentId = vehicle.agentId;
+        
+        // Generate a unique Firebase-compatible ID
+        const firebaseId = `review_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+        
+        // Create the review
+        const review = new Review({
+            customerId,
+            vehicleId: mongoVehicleId,
+            agentId,
+            bookingId,
+            userId, // Store original Firebase userId
+            firebaseId, // Store generated Firebase-compatible ID
+            rating,
+            comment,
+            status: 'pending'
+        });
+        
+        const savedReview = await review.save();
+        
+        // Update the booking with the review information
+        booking.hasReview = true;
+        await booking.save();
+        
+        // Update the vehicle's rating
+        const allVehicleReviews = await Review.find({ vehicleId: mongoVehicleId });
+        const reviewCount = allVehicleReviews.length;
+        const totalRating = allVehicleReviews.reduce((sum, review) => sum + review.rating, 0);
+        const averageRating = reviewCount > 0 ? totalRating / reviewCount : 0;
+        
+        vehicle.rating = {
+            average: averageRating,
+            count: reviewCount
+        };
+        
+        // Add the review reference to the vehicle
+        vehicle.reviews.push(savedReview._id);
+        await vehicle.save();
+        
+        // Add the review reference to the customer
+        if (customer) {
+            customer.reviews.push(savedReview._id);
+            await customer.save();
+        }
+        
+        console.log(`Review created successfully: ${savedReview._id}`);
+        
+        res.status(201).json(savedReview);
+    } catch (error) {
+        console.error('Error creating review:', error);
+        res.status(500).json({ 
+            message: 'Server error while creating review', 
+            error: error.message 
+        });
+    }
+});
+
+// GET reviews for a vehicle
+router.get('/reviews/vehicle/:vehicleId', async (req, res) => {
+    try {
+        const { vehicleId } = req.params;
+        
+        if (!vehicleId) {
+            return res.status(400).json({
+                message: 'Vehicle ID is required'
+            });
+        }
+        
+        const reviews = await Review.find({ vehicleId })
+            .populate('customerId', 'name')
+            .sort({ createdAt: -1 });
+        
+        res.json(reviews);
+    } catch (error) {
+        console.error('Error fetching vehicle reviews:', error);
+        res.status(500).json({ 
+            message: 'Server error while fetching reviews', 
+            error: error.message 
+        });
+    }
+});
+
+// GET reviews for a user
+router.get('/reviews/user/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        if (!userId) {
+            return res.status(400).json({
+                message: 'User ID is required'
+            });
+        }
+        
+        console.log(`Fetching reviews for user: ${userId}`);
+        
+        // First, try to find reviews directly by userId if it's stored as is
+        let reviews = await Review.find({ userId })
+            .populate('vehicleId', 'make model year type')
+            .sort({ createdAt: -1 });
+            
+        // If no reviews found, try to find by customer reference
+        if (reviews.length === 0) {
+            // Find the customer by Firebase UID
+            const customer = await Customer.findOne({ firebaseUID: userId });
+            
+            if (customer) {
+                console.log(`Found customer in MongoDB with ID: ${customer._id}`);
+                reviews = await Review.find({ customerId: customer._id })
+                    .populate('vehicleId', 'make model year type')
+                    .sort({ createdAt: -1 });
+            }
+        }
+        
+        console.log(`Found ${reviews.length} reviews for user ${userId}`);
+        res.json(reviews);
+    } catch (error) {
+        console.error('Error fetching user reviews:', error);
+        res.status(500).json({ 
+            message: 'Server error while fetching reviews', 
+            error: error.message 
         });
     }
 });
