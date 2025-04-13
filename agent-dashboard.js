@@ -2883,3 +2883,345 @@ function setupPastRentalsEvents() {
         console.error('Refresh button for past rentals not found');
     }
 }
+
+// Handle the agent profile section
+function handleAgentProfile() {
+    const updateProfileBtn = document.getElementById('updateProfileBtn');
+    const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+    const cancelBtn = document.querySelector('.profile-actions .cancel-btn');
+    
+    // Load profile data when section becomes active
+    document.querySelector('.nav-item[data-section="profile"]').addEventListener('click', function() {
+        const userId = firebase.auth().currentUser?.uid;
+        if (userId) {
+            loadAgentProfileData(userId);
+        }
+    });
+    
+    // Handle profile form submission
+    if (updateProfileBtn) {
+        updateProfileBtn.addEventListener('click', function() {
+            saveAgentProfile();
+        });
+    }
+    
+    // Handle password update
+    if (updatePasswordBtn) {
+        updatePasswordBtn.addEventListener('click', function() {
+            updatePassword();
+        });
+    }
+    
+    // Handle cancel button
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            const userId = firebase.auth().currentUser?.uid;
+            if (userId) {
+                loadAgentProfileData(userId); // Reload the original data
+            }
+        });
+    }
+    
+    // Handle password change
+    const newPasswordField = document.getElementById('newPassword');
+    const confirmPasswordField = document.getElementById('confirmPassword');
+    
+    if (confirmPasswordField) {
+        confirmPasswordField.addEventListener('input', function() {
+            validatePasswordMatch(newPasswordField, confirmPasswordField);
+        });
+    }
+}
+
+// Load agent profile data
+async function loadAgentProfileData(userId) {
+    try {
+        const db = firebase.firestore();
+        const user = firebase.auth().currentUser;
+        
+        // Get agent data from Firestore
+        const agentSnapshot = await db.collection('agents').doc(userId).get();
+        
+        if (agentSnapshot.exists) {
+            const agentData = agentSnapshot.data();
+            console.log('Loaded agent data:', agentData);
+            
+            // Update header info
+            const profileHeaderName = document.getElementById('profileHeaderName');
+            const profileHeaderEmail = document.getElementById('profileHeaderEmail');
+            const memberSince = document.getElementById('memberSince');
+            
+            if (profileHeaderName) profileHeaderName.textContent = agentData.name || user.displayName || user.email.substring(0, 1).toUpperCase();
+            if (profileHeaderEmail) profileHeaderEmail.textContent = user.email || agentData.email;
+            
+            // Format the creation date if available
+            if (memberSince) {
+                if (user.metadata && user.metadata.creationTime) {
+                    const creationDate = new Date(user.metadata.creationTime);
+                    const options = { year: 'numeric', month: 'long' };
+                    memberSince.textContent = creationDate.toLocaleDateString('en-US', options);
+                } else if (agentData.createdAt) {
+                    // Handle different timestamp formats
+                    let creationDate;
+                    if (agentData.createdAt.toDate) {
+                        creationDate = agentData.createdAt.toDate(); // Firebase Timestamp
+                    } else if (agentData.createdAt.seconds) {
+                        creationDate = new Date(agentData.createdAt.seconds * 1000); // Firebase Timestamp as object
+                    } else if (typeof agentData.createdAt === 'string') {
+                        creationDate = new Date(agentData.createdAt); // ISO string format
+                    }
+                    
+                    if (creationDate) {
+                        const options = { year: 'numeric', month: 'long' };
+                        memberSince.textContent = creationDate.toLocaleDateString('en-US', options);
+                    }
+                }
+            }
+            
+            // Update form fields
+            document.getElementById('fullName').value = agentData.name || '';
+            document.getElementById('phoneNumber').value = agentData.phone || '';
+            document.getElementById('emailAddress').value = user.email || agentData.email || '';
+            document.getElementById('dateOfBirth').value = agentData.dateOfBirth || '';
+            
+            // Address information (handle possible structure differences)
+            if (agentData.address && typeof agentData.address === 'object') {
+                // If address is an object with properties
+                document.getElementById('streetAddress').value = agentData.address.street || '';
+                document.getElementById('city').value = agentData.address.city || '';
+                document.getElementById('stateProvince').value = agentData.address.state || '';
+                document.getElementById('postalCode').value = agentData.address.postalCode || '';
+            }
+            
+            // Agency information - directly map from MongoDB fields
+            document.getElementById('agencyName').value = agentData.agencyName || '';
+            document.getElementById('businessType').value = agentData.businessType || '';
+            
+            // Handle businessAddress - this is the field we saw in MongoDB
+            // MongoDB showed businessAddress as an Object, but we're using a single field input
+            if (agentData.businessAddress) {
+                if (typeof agentData.businessAddress === 'string') {
+                    // If it's already a string, use it directly
+                    document.getElementById('businessAddress').value = agentData.businessAddress;
+                } else if (typeof agentData.businessAddress === 'object') {
+                    // If it's an object, we need to format it
+                    const businessAddressObj = agentData.businessAddress;
+                    // Format it into a single string - adjust this based on your actual object structure
+                    let formattedAddress = '';
+                    if (businessAddressObj.street) formattedAddress += businessAddressObj.street;
+                    if (businessAddressObj.city) formattedAddress += (formattedAddress ? ', ' : '') + businessAddressObj.city;
+                    if (businessAddressObj.state) formattedAddress += (formattedAddress ? ', ' : '') + businessAddressObj.state;
+                    if (businessAddressObj.postalCode) formattedAddress += (formattedAddress ? ' ' : '') + businessAddressObj.postalCode;
+                    
+                    document.getElementById('businessAddress').value = formattedAddress;
+                }
+            } else {
+                document.getElementById('businessAddress').value = '';
+            }
+            
+            // Business license was shown in MongoDB
+            document.getElementById('businessLicense').value = agentData.businessLicense || '';
+            document.getElementById('taxId').value = agentData.taxId || '';
+            
+            // Also update the agent name in the dashboard welcome message
+            const agentNameElement = document.getElementById('agentName');
+            if (agentNameElement && agentData.name) {
+                agentNameElement.textContent = agentData.name;
+            }
+            
+        } else {
+            console.warn('Agent profile not found');
+            showNotification('Agent profile not found', 'warning');
+        }
+    } catch (error) {
+        console.error('Error loading agent profile:', error);
+        showNotification('Error loading profile information: ' + error.message, 'error');
+    }
+}
+
+// Save agent profile updates
+async function saveAgentProfile() {
+    try {
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            showNotification('You must be logged in to update your profile', 'error');
+            return;
+        }
+        
+        const updateProfileBtn = document.getElementById('updateProfileBtn');
+        updateProfileBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        updateProfileBtn.disabled = true;
+        
+        // Get form values
+        const fullName = document.getElementById('fullName').value.trim();
+        const phoneNumber = document.getElementById('phoneNumber').value.trim();
+        const dateOfBirth = document.getElementById('dateOfBirth').value;
+        
+        // Address information
+        const streetAddress = document.getElementById('streetAddress').value.trim();
+        const city = document.getElementById('city').value.trim();
+        const stateProvince = document.getElementById('stateProvince').value.trim();
+        const postalCode = document.getElementById('postalCode').value.trim();
+        
+        // Agency information
+        const agencyName = document.getElementById('agencyName').value.trim();
+        const businessType = document.getElementById('businessType').value;
+        const businessAddress = document.getElementById('businessAddress').value.trim(); // Business address as seen in MongoDB
+        const businessLicense = document.getElementById('businessLicense').value.trim();
+        const taxId = document.getElementById('taxId').value.trim();
+        
+        // Create agent data object for Firestore
+        const agentData = {
+            name: fullName,
+            phone: phoneNumber,
+            dateOfBirth: dateOfBirth,
+            address: {
+                street: streetAddress,
+                city: city,
+                state: stateProvince,
+                postalCode: postalCode
+            },
+            agencyName: agencyName,
+            businessType: businessType,
+            businessAddress: businessAddress, // This matches the MongoDB field name
+            businessLicense: businessLicense,
+            taxId: taxId,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            status: "active" // Make sure status stays active as in MongoDB
+        };
+        
+        console.log('Updating agent profile with:', agentData);
+        
+        // Update Firestore document
+        const db = firebase.firestore();
+        await db.collection('agents').doc(user.uid).update(agentData);
+        
+        // Also update any fields in the authentication profile if needed
+        // This helps keep displayName synced
+        if (fullName !== user.displayName) {
+            await user.updateProfile({
+                displayName: fullName
+            });
+        }
+        
+        // Update the agent name in dashboard
+        const agentNameElement = document.getElementById('agentName');
+        if (agentNameElement && fullName) {
+            agentNameElement.textContent = fullName;
+        }
+        
+        // Update profile header
+        const profileHeaderName = document.getElementById('profileHeaderName');
+        if (profileHeaderName) {
+            profileHeaderName.textContent = fullName || user.email.substring(0, 1).toUpperCase();
+        }
+        
+        showNotification('Profile updated successfully', 'success');
+        
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showNotification('Error updating profile: ' + error.message, 'error');
+    } finally {
+        const updateProfileBtn = document.getElementById('updateProfileBtn');
+        updateProfileBtn.innerHTML = 'Save Changes';
+        updateProfileBtn.disabled = false;
+    }
+}
+
+// Update password separately
+async function updatePassword() {
+    try {
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            showNotification('You must be logged in to change your password', 'error');
+            return;
+        }
+        
+        const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+        updatePasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+        updatePasswordBtn.disabled = true;
+        
+        // Get password values
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        // Validation
+        if (!currentPassword) {
+            showNotification('Current password is required', 'error');
+            return;
+        }
+        
+        if (!newPassword || !confirmPassword) {
+            showNotification('New password and confirmation are required', 'error');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            showNotification('New passwords do not match', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            showNotification('Password must be at least 8 characters long', 'error');
+            return;
+        }
+        
+        try {
+            // Reauthenticate the user first
+            const credential = firebase.auth.EmailAuthProvider.credential(
+                user.email, 
+                currentPassword
+            );
+            
+            await user.reauthenticateWithCredential(credential);
+            
+            // Now change the password
+            await user.updatePassword(newPassword);
+            
+            // Clear password fields
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            
+            showNotification('Password updated successfully', 'success');
+        } catch (authError) {
+            console.error('Error updating password:', authError);
+            
+            if (authError.code === 'auth/wrong-password') {
+                showNotification('Current password is incorrect', 'error');
+            } else {
+                showNotification('Failed to update password: ' + authError.message, 'error');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error in password update:', error);
+        showNotification('Error updating password', 'error');
+    } finally {
+        const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+        updatePasswordBtn.innerHTML = 'Change Password';
+        updatePasswordBtn.disabled = false;
+    }
+}
+
+// Validate that passwords match
+function validatePasswordMatch(passwordField, confirmField) {
+    if (passwordField.value !== confirmField.value) {
+        confirmField.setCustomValidity('Passwords do not match');
+    } else {
+        confirmField.setCustomValidity('');
+    }
+}
+
+// ... existing code ...
+
+// Add to document ready event listener
+document.addEventListener('DOMContentLoaded', async function() {
+    // ... existing code ...
+    
+    // Initialize profile functionality
+    handleAgentProfile();
+    
+    // ... existing code ...
+});

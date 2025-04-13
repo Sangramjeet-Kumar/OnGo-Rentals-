@@ -1296,9 +1296,19 @@ function loadRecentActivities(bookings) {
 
 // Handle profile update
 function handleProfileUpdate() {
+    console.log('Initializing profile update handler');
     const updateProfileBtn = document.getElementById('updateProfileBtn');
     
-    updateProfileBtn.addEventListener('click', () => {
+    if (!updateProfileBtn) {
+        console.error("Update Profile button not found in the DOM");
+        return;
+    }
+    
+    console.log('Update Profile button found, attaching event listener');
+    
+    // Use a named function to make it easier to debug
+    function updateProfileHandler() {
+        console.log('Update Profile button clicked');
         const currentUser = getCurrentUser();
         
         if (!currentUser) {
@@ -1334,6 +1344,9 @@ function handleProfileUpdate() {
         updateProfileBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
         updateProfileBtn.disabled = true;
         
+        // Get a reference to Firestore
+        const db = firebase.firestore();
+        
         // Update user data in Firestore
         db.collection('users').doc(currentUser.uid).update({
             name: fullName,
@@ -1354,13 +1367,12 @@ function handleProfileUpdate() {
             // Update displayed name
             const userNameElements = document.querySelectorAll('#userName, #profileName');
             userNameElements.forEach(element => {
-                element.textContent = fullName;
+                if (element) element.textContent = fullName;
             });
             
             // Update profile email if it exists
             const profileEmailElement = document.getElementById('profileEmail');
             if (profileEmailElement) {
-                const currentUser = getCurrentUser();
                 if (currentUser && currentUser.email) {
                     profileEmailElement.textContent = currentUser.email;
                 }
@@ -1375,7 +1387,13 @@ function handleProfileUpdate() {
             updateProfileBtn.innerHTML = 'Update Profile';
             updateProfileBtn.disabled = false;
         });
-    });
+    }
+    
+    // Remove any existing listeners
+    updateProfileBtn.removeEventListener('click', updateProfileHandler);
+    
+    // Add the event listener
+    updateProfileBtn.addEventListener('click', updateProfileHandler);
 }
 
 // Handle logout
@@ -4255,6 +4273,7 @@ function setupEventListeners() {
                 handlePasswordToggles();
                 handlePasswordStrength();
                 handlePasswordChange();
+                handleProfileUpdate(); // Ensure profile update handler is initialized
             }
         });
     });
@@ -4267,6 +4286,11 @@ function setupEventListeners() {
         handlePasswordChange();
     }
     
+    // Initialize profile update button if it exists
+    if (document.getElementById('updateProfileBtn')) {
+        handleProfileUpdate();
+    }
+    
     // Handle logout
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
@@ -4274,11 +4298,11 @@ function setupEventListeners() {
             firebase.auth().signOut()
                 .then(() => {
                     console.log('User signed out');
-            window.location.href = 'index.html';
+                    window.location.href = 'index.html';
                 })
                 .catch(error => {
                     console.error('Sign out error:', error);
-    });
+                });
         });
     }
     
