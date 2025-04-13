@@ -1,9 +1,18 @@
 const mongoose = require('mongoose');
 
 const reviewSchema = new mongoose.Schema({
-    customerId: {
+    userId: {
+        type: String,
+        required: true,
+        index: true
+    },
+    userName: {
+        type: String,
+        default: 'Anonymous User'
+    },
+    bookingId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'Customer',
+        ref: 'Booking',
         required: true
     },
     vehicleId: {
@@ -11,23 +20,19 @@ const reviewSchema = new mongoose.Schema({
         ref: 'Vehicle',
         required: true
     },
+    vehicleName: {
+        type: String,
+        required: false
+    },
+    customerId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Customer',
+        required: false
+    },
     agentId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Agent',
-        required: true
-    },
-    bookingId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Booking',
-        required: true
-    },
-    firebaseId: {
-        type: String,
-        index: true
-    },
-    userId: {
-        type: String,
-        index: true
+        required: false
     },
     rating: {
         type: Number,
@@ -35,7 +40,7 @@ const reviewSchema = new mongoose.Schema({
         min: 1,
         max: 5
     },
-    comment: {
+    comments: {
         type: String,
         required: true
     },
@@ -45,19 +50,28 @@ const reviewSchema = new mongoose.Schema({
     status: {
         type: String,
         enum: ['pending', 'approved', 'rejected'],
-        default: 'pending'
+        default: 'approved'
     },
     response: {
         comment: String,
         date: Date
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
+    updatedAt: {
+        type: Date,
+        default: Date.now
     }
 }, {
     timestamps: true
 });
 
 // Add indexes for better query performance
-reviewSchema.index({ customerId: 1, vehicleId: 1 });
-reviewSchema.index({ agentId: 1 });
+reviewSchema.index({ userId: 1 });
+reviewSchema.index({ vehicleId: 1 });
 reviewSchema.index({ bookingId: 1 });
+reviewSchema.index({ agentId: 1 });
 
 module.exports = mongoose.model('Review', reviewSchema); 

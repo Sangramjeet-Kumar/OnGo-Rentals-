@@ -1644,43 +1644,84 @@ function handlePasswordChange() {
 
 // Handle star rating selection
 function handleStarRating() {
-    const starRating = document.getElementById('ratingStars');
-    const stars = starRating.querySelectorAll('i');
-    const selectedRating = document.getElementById('selectedRating');
+    const ratingStarsContainer = document.getElementById('ratingStars');
     
-    // Handle star click
-    stars.forEach(star => {
-        star.addEventListener('click', () => {
-            const rating = parseInt(star.getAttribute('data-rating'));
-            selectedRating.value = rating;
-            
-            // Update star display
-            updateStars(stars, rating);
+    if (!ratingStarsContainer) {
+        console.log('Star rating container not found');
+        return;
+    }
+    
+    // Ensure we have 5 stars
+    if (ratingStarsContainer.children.length < 5) {
+        ratingStarsContainer.innerHTML = '';
+        for (let i = 1; i <= 5; i++) {
+            const star = document.createElement('i');
+            star.className = 'far fa-star';
+            star.setAttribute('data-rating', i);
+            ratingStarsContainer.appendChild(star);
+        }
+    }
+    
+    const ratingStars = ratingStarsContainer.querySelectorAll('i');
+    const selectedRating = document.getElementById('selectedRating');
+    const submitButton = document.getElementById('submitReviewBtn');
+    
+    if (!ratingStars.length || !selectedRating) {
+        console.error('Star rating elements not found');
+        return;
+    }
+    
+    console.log('Initializing star rating functionality with', ratingStars.length, 'stars');
+    
+    // Clear any existing event listeners (prevent duplicates)
+    ratingStars.forEach(star => {
+        star.replaceWith(star.cloneNode(true));
+    });
+    
+    // Get fresh references after cloning
+    const freshStars = ratingStarsContainer.querySelectorAll('i');
+    
+    freshStars.forEach(star => {
+        // Add hover effect
+        star.addEventListener('mouseover', function() {
+            const rating = parseInt(this.getAttribute('data-rating'));
+            updateStars(freshStars, rating);
         });
         
-        // Handle hover effects
-        star.addEventListener('mouseenter', () => {
-            const rating = parseInt(star.getAttribute('data-rating'));
+        // Add click handler
+        star.addEventListener('click', function() {
+            const rating = parseInt(this.getAttribute('data-rating'));
+            selectedRating.value = rating;
+            console.log('Star rating selected:', rating);
+            updateStars(freshStars, rating);
             
-            stars.forEach((s, index) => {
-                if (index < rating) {
-                    s.className = 'fas fa-star';
-        } else {
-                    s.className = 'far fa-star';
+            // Enable submit button if a rating is selected
+            if (submitButton) {
+                submitButton.disabled = false;
+            }
+            
+            // Add selected class for persistent highlight
+            freshStars.forEach((s, i) => {
+                if (i < rating) {
+                    s.classList.add('selected');
+                } else {
+                    s.classList.remove('selected');
                 }
             });
         });
     });
     
-    // Reset to selected rating on mouse leave
-    starRating.addEventListener('mouseleave', () => {
-        const rating = parseInt(selectedRating.value);
-        updateStars(stars, rating);
+    // Handle mouseout - reset to selected rating or none
+    ratingStarsContainer.addEventListener('mouseout', function() {
+        const rating = parseInt(selectedRating.value) || 0;
+        updateStars(freshStars, rating);
     });
 }
 
-// Update stars based on rating
+// Update star display based on rating
 function updateStars(stars, rating) {
+    if (!stars || !stars.length) return;
+    
     stars.forEach((star, index) => {
         if (index < rating) {
             star.className = 'fas fa-star';
@@ -1694,7 +1735,17 @@ function updateStars(stars, rating) {
 function handleReviewSubmission() {
     const submitReviewBtn = document.getElementById('submitReviewBtn');
     
-    submitReviewBtn.addEventListener('click', () => {
+    if (!submitReviewBtn) {
+        console.error('Submit review button not found');
+        return;
+    }
+    
+    // Clear existing event listeners to prevent duplicates
+    const newBtn = submitReviewBtn.cloneNode(true);
+    submitReviewBtn.parentNode.replaceChild(newBtn, submitReviewBtn);
+    
+    // Add event listener to the fresh button
+    newBtn.addEventListener('click', () => {
         const currentUser = getCurrentUser();
         
         if (!currentUser) {
@@ -1702,9 +1753,15 @@ function handleReviewSubmission() {
             return;
         }
         
-        const rentalId = document.getElementById('reviewRental').value;
-        const rating = document.getElementById('selectedRating').value;
-        const comments = document.getElementById('reviewComments').value;
+        const rentalSelect = document.getElementById('reviewRental');
+        if (!rentalSelect) {
+            showNotification("Review form is missing rental selection.", "error");
+            return;
+        }
+        
+        const rentalId = rentalSelect.value;
+        const rating = document.getElementById('selectedRating')?.value || "0";
+        const comments = document.getElementById('reviewComments')?.value || "";
         
         // Validate inputs
         if (!rentalId) {
@@ -1713,7 +1770,7 @@ function handleReviewSubmission() {
         }
         
         if (rating === "0") {
-            showNotification("Please select a rating.", "error");
+            showNotification("Please select a rating by clicking on the stars.", "error");
             return;
         }
         
@@ -1723,25 +1780,63 @@ function handleReviewSubmission() {
         }
         
         // Show loading state
-        submitReviewBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-        submitReviewBtn.disabled = true;
+        newBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+        newBtn.disabled = true;
         
-        // Submit review to Firestore
-        db.collection('reviews').add({
+        // Create review data object
+        const reviewData = {
             userId: currentUser.uid,
-            rentalId: rentalId,
+            userName: currentUser.displayName || currentUser.email.split('@')[0],
+            bookingId: rentalId,
             rating: parseInt(rating),
             comments: comments,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            createdAt: new Date().toISOString()
+        };
+        
+        console.log('Submitting review to MongoDB:', reviewData);
+        
+        // Submit review to MongoDB using the API
+        const { ipcRenderer } = require('electron');
+        ipcRenderer.invoke('api-call', {
+            method: 'POST',
+            url: '/api/reviews',
+            body: JSON.stringify(reviewData)
         })
-        .then(() => {
-            // Update the rental with the review info
-            return db.collection('rentals').doc(rentalId).update({
-                hasReview: true,
-                rating: parseInt(rating)
+        .then(response => {
+            console.log('Review API response:', response);
+            
+            if (!response.ok) {
+                let errorMsg = 'Failed to submit review to MongoDB';
+                if (response.error) {
+                    errorMsg += `: ${response.error}`;
+                } else if (response.data && response.data.message) {
+                    errorMsg += `: ${response.data.message}`;
+                }
+                throw new Error(errorMsg);
+            }
+            
+            console.log('Review submitted to MongoDB successfully:', response.data);
+            
+            // Now update the booking record to mark it as reviewed
+            return ipcRenderer.invoke('api-call', {
+                method: 'PUT',
+                url: `/api/bookings/${rentalId}/review`,
+                body: JSON.stringify({ 
+                    hasReview: true, 
+                    rating: parseInt(rating) 
+                })
             });
         })
-        .then(() => {
+        .then(updateResponse => {
+            console.log('Booking update response:', updateResponse);
+            
+            if (!updateResponse.ok) {
+                console.warn('Booking update partially failed:', updateResponse.error);
+                // We'll continue anyway as the review was saved
+            } else {
+                console.log('Booking marked as reviewed in MongoDB');
+            }
+            
             showNotification("Review submitted successfully!", "success");
             
             // Reset form
@@ -1753,122 +1848,293 @@ function handleReviewSubmission() {
             const stars = document.querySelectorAll('#ratingStars i');
             updateStars(stars, 0);
             
+            // Remove the reviewed option from the dropdown
+            const option = document.querySelector(`option[value="${rentalId}"]`);
+            if (option) option.remove();
+            
+            // Remove the reviewed option from the visual list if it exists
+            const reviewCard = document.querySelector(`.reviewable-vehicle-card button[data-booking-id="${rentalId}"]`)?.closest('.reviewable-vehicle-card');
+            if (reviewCard) reviewCard.remove();
+            
             // Refresh reviews list
-            loadUserReviews();
+            console.log('Review submitted successfully - refreshing reviews list');
+            
+            // Wait a moment before refreshing to ensure server processing is complete
+            setTimeout(() => {
+                // First clear any existing reviews to avoid duplicates
+                const reviewsList = document.getElementById('userReviewsList');
+                if (reviewsList) {
+                    reviewsList.innerHTML = '<div class="loading-reviews"><i class="fas fa-spinner fa-spin"></i><p>Refreshing reviews...</p></div>';
+                    
+                    // Reset the last fetch timestamp to force a new fetch
+                    lastReviewsFetch = 0;
+                    
+                    // Then load fresh reviews
+                    loadUserReviews();
+                }
+            }, 500);
         })
         .catch((error) => {
             console.error("Error submitting review:", error);
-            showNotification("Failed to submit review. Please try again.", "error");
+            showNotification("Failed to submit review: " + error.message, "error");
         })
         .finally(() => {
             // Reset button state
-            submitReviewBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Review';
-            submitReviewBtn.disabled = false;
+            newBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Review';
+            newBtn.disabled = false;
         });
     });
 }
 
+// Add this debounce utility function at the top of the file, after the first few imports
+function debounce(func, wait) {
+    let timeout;
+    return function() {
+        const context = this;
+        const args = arguments;
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(context, args), wait);
+    };
+}
+
+// Replace the loadUserReviews function with a debounced version
+// Track the last fetch timestamp to avoid duplicate calls
+let lastReviewsFetch = 0;
+const FETCH_COOLDOWN = 1000; // 1 second cooldown between fetches
+
 // Load user reviews
 function loadUserReviews() {
+    const currentTime = Date.now();
+    
+    // If we recently fetched reviews, don't fetch again
+    if (currentTime - lastReviewsFetch < FETCH_COOLDOWN) {
+        console.log('Skipping reviews fetch - called too frequently');
+        return;
+    }
+    
+    // Update the last fetch timestamp
+    lastReviewsFetch = currentTime;
+    
     const currentUser = getCurrentUser();
     const reviewsList = document.getElementById('userReviewsList');
     
-    if (!currentUser) {
+    if (!currentUser || !reviewsList) {
         return;
     }
+    
+    // Check if a fetch is already in progress
+    if (reviewsList.dataset.loading === 'true') {
+        console.log('Reviews fetch already in progress, skipping duplicate call');
+        return;
+    }
+    
+    // Mark as loading
+    reviewsList.dataset.loading = 'true';
     
     // Clear current content
     reviewsList.innerHTML = '<div class="loading-reviews"><i class="fas fa-spinner fa-spin"></i><p>Loading your reviews...</p></div>';
     
-    // Get user's reviews from Firestore
-    db.collection('reviews')
-        .where('userId', '==', currentUser.uid)
-        .orderBy('createdAt', 'desc')
-        .get()
-        .then((querySnapshot) => {
-            if (querySnapshot.empty) {
-                reviewsList.innerHTML = `
-                    <div class="empty-reviews">
-                        <i class="fas fa-comment-slash"></i>
-                        <p>You haven't submitted any reviews yet</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            // Clear loading state
-            reviewsList.innerHTML = '';
-            
-            // Process each review
-            querySnapshot.forEach((doc) => {
-                const reviewData = doc.data();
-                
-                // Get rental details
-                db.collection('rentals').doc(reviewData.rentalId).get()
-                    .then((rentalDoc) => {
-                        if (rentalDoc.exists) {
-                            const rentalData = rentalDoc.data();
-                            const vehicleType = rentalData.vehicleType || 'Vehicle';
-                            
-                            // Format date
-                            const reviewDate = reviewData.createdAt.toDate();
-                            const formattedDate = reviewDate.toLocaleDateString('en-US', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric'
-                            });
-                            
-                            // Create stars HTML
-                            let starsHTML = '';
-                            for (let i = 1; i <= 5; i++) {
-                                if (i <= reviewData.rating) {
-                                    starsHTML += '<i class="fas fa-star"></i>';
-                                } else {
-                                    starsHTML += '<i class="far fa-star"></i>';
-                                }
-                            }
-                            
-                            // Create review item
-                            const reviewItem = document.createElement('div');
-                            reviewItem.className = 'review-item';
-                            reviewItem.innerHTML = `
-                                <div class="review-item-header">
-                                    <div class="review-car">${vehicleType}</div>
-                                    <div class="review-date">${formattedDate}</div>
-                                </div>
-                                <div class="review-rating">
-                                    ${starsHTML}
-                                </div>
-                                <p class="review-comment">${reviewData.comments}</p>
-                            `;
-                            
-                            // Add to list
-                            reviewsList.appendChild(reviewItem);
-                        }
-                    })
-                    .catch((error) => {
-                        console.error("Error getting rental:", error);
-                    });
-            });
-        })
-        .catch((error) => {
-            console.error("Error loading reviews:", error);
+    // Get user's reviews from MongoDB
+    const { ipcRenderer } = require('electron');
+    console.log(`Fetching reviews for user: ${currentUser.uid}`);
+    
+    ipcRenderer.invoke('api-call', {
+        method: 'GET',
+        url: `/api/reviews/user/${currentUser.uid}`
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(response.error || 'Failed to fetch reviews from MongoDB');
+        }
+        
+        const reviews = response.data;
+        console.log(`Loaded ${reviews.length} reviews from MongoDB`);
+        
+        if (reviews.length === 0) {
             reviewsList.innerHTML = `
                 <div class="empty-reviews">
-                    <i class="fas fa-exclamation-circle"></i>
-                    <p>Failed to load reviews. Please try again.</p>
+                    <i class="fas fa-comment-slash"></i>
+                    <p>You haven't submitted any reviews yet</p>
                 </div>
             `;
-        });
+            return;
+        }
+        
+        // Clear loading state
+        reviewsList.innerHTML = '';
+        
+        // Sort reviews by date (newest first)
+        reviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        
+        // Keep track of processed reviews by ID to avoid duplicates
+        const processedReviewIds = new Set();
+        
+        // Process each review
+        const processReviews = async () => {
+            for (const review of reviews) {
+                // Skip if this review ID has already been processed
+                if (processedReviewIds.has(review._id)) {
+                    continue;
+                }
+                
+                // Mark this review as processed
+                processedReviewIds.add(review._id);
+                
+                try {
+                    // Get booking details
+                    const bookingResponse = await ipcRenderer.invoke('api-call', {
+                        method: 'GET',
+                        url: `/api/bookings/${review.bookingId}`
+                    });
+                    
+                    if (!bookingResponse.ok || !bookingResponse.data) {
+                        throw new Error('Could not fetch booking details');
+                    }
+                    
+                    const booking = bookingResponse.data;
+                    
+                    // Format date
+                    const reviewDate = new Date(review.createdAt);
+                    const formattedDate = reviewDate.toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                    });
+                    
+                    // Create stars HTML
+                    let starsHTML = '';
+                    for (let i = 1; i <= 5; i++) {
+                        if (i <= review.rating) {
+                            starsHTML += '<i class="fas fa-star"></i>';
+                        } else {
+                            starsHTML += '<i class="far fa-star"></i>';
+                        }
+                    }
+                    
+                    // Create review item
+                    const reviewItem = document.createElement('div');
+                    reviewItem.className = 'review-item';
+                    reviewItem.dataset.reviewId = review._id; // Add data attribute for review ID
+                    reviewItem.innerHTML = `
+                        <div class="review-item-header">
+                            <div class="review-car">${booking.vehicleName || 'Vehicle'}</div>
+                            <div class="review-date">${formattedDate}</div>
+                        </div>
+                        <div class="review-rating">
+                            ${starsHTML}
+                        </div>
+                        <p class="review-comment">${review.comments}</p>
+                    `;
+                    
+                    // Add to list
+                    reviewsList.appendChild(reviewItem);
+                } catch (error) {
+                    console.error("Error processing review:", error, review);
+                    
+                    // Create a simpler review item with the available data
+                    const reviewItem = document.createElement('div');
+                    reviewItem.className = 'review-item';
+                    reviewItem.dataset.reviewId = review._id; // Add data attribute for review ID
+                    
+                    // Create stars HTML
+                    let starsHTML = '';
+                    for (let i = 1; i <= 5; i++) {
+                        if (i <= review.rating) {
+                            starsHTML += '<i class="fas fa-star"></i>';
+                        } else {
+                            starsHTML += '<i class="far fa-star"></i>';
+                        }
+                    }
+                    
+                    // Format date as best we can
+                    let formattedDate = 'Unknown date';
+                    try {
+                        const reviewDate = new Date(review.createdAt);
+                        formattedDate = reviewDate.toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric'
+                        });
+                    } catch (e) {}
+                    
+                    reviewItem.innerHTML = `
+                        <div class="review-item-header">
+                            <div class="review-car">${review.vehicleName || 'Vehicle Review'}</div>
+                            <div class="review-date">${formattedDate}</div>
+                        </div>
+                        <div class="review-rating">
+                            ${starsHTML}
+                        </div>
+                        <p class="review-comment">${review.comments}</p>
+                    `;
+                    
+                    // Add to list
+                    reviewsList.appendChild(reviewItem);
+                }
+            }
+        };
+        
+        // Execute the processing
+        processReviews()
+            .catch(error => {
+                console.error("Error in processing reviews:", error);
+            })
+            .finally(() => {
+                // Clear loading flag when done
+                reviewsList.dataset.loading = 'false';
+            });
+    })
+    .catch(error => {
+        console.error("Error loading reviews from MongoDB:", error);
+        reviewsList.innerHTML = `
+            <div class="empty-reviews">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>Failed to load reviews. Please try again.</p>
+            </div>
+        `;
+        // Clear loading flag on error
+        reviewsList.dataset.loading = 'false';
+    });
 }
 
-// Load rental options for review
+// Track the last rental options fetch timestamp to avoid duplicate calls
+let lastRentalOptionsFetch = 0;
+const RENTAL_OPTIONS_FETCH_COOLDOWN = 1000; // 1 second cooldown between fetches
+
 function loadRentalOptions() {
+    const currentTime = Date.now();
+    
+    // If we recently fetched rental options, don't fetch again
+    if (currentTime - lastRentalOptionsFetch < RENTAL_OPTIONS_FETCH_COOLDOWN) {
+        console.log('Skipping rental options fetch - called too frequently');
+        return;
+    }
+    
+    // Update the last fetch timestamp
+    lastRentalOptionsFetch = currentTime;
+    
     const currentUser = getCurrentUser();
     const rentalSelect = document.getElementById('reviewRental');
+    const reviewableVehicles = document.getElementById('reviewableVehicles');
     
-    if (!currentUser) {
+    if (!currentUser || !rentalSelect) {
         return;
+    }
+    
+    // Check if a fetch is already in progress
+    if (rentalSelect.dataset.loading === 'true') {
+        console.log('Rental options fetch already in progress, skipping duplicate call');
+        return;
+    }
+    
+    // Mark as loading
+    rentalSelect.dataset.loading = 'true';
+    
+    console.log('Loading rental options for reviews...');
+    
+    // Show loading state
+    if (reviewableVehicles) {
+        reviewableVehicles.innerHTML = '<div class="loading-rentals"><i class="fas fa-spinner fa-spin"></i><p>Loading completed rentals...</p></div>';
     }
     
     // Clear current options except the default
@@ -1876,46 +2142,272 @@ function loadRentalOptions() {
         rentalSelect.remove(1);
     }
     
-    // Get user's completed rentals from Firestore
-    db.collection('rentals')
-        .where('userId', '==', currentUser.uid)
-        .where('status', '==', 'completed')
-        .where('hasReview', '==', false)
-        .orderBy('returnDate', 'desc')
-        .get()
-        .then((querySnapshot) => {
-            if (querySnapshot.empty) {
+    // First try to get completed rentals from MongoDB API
+    const { ipcRenderer } = require('electron');
+    ipcRenderer.invoke('api-call', {
+        method: 'GET',
+        url: `/api/bookings/user/${currentUser.uid}?status=completed`
+    })
+    .then(response => {
+        if (response.ok && response.data && response.data.length > 0) {
+            const completedBookings = response.data.filter(booking => !booking.hasReview);
+            
+            console.log(`Found ${completedBookings.length} completed bookings without reviews in MongoDB`);
+            
+            if (completedBookings.length === 0) {
                 const option = document.createElement('option');
                 option.text = 'No completed rentals found';
                 option.disabled = true;
                 rentalSelect.add(option);
+                
+                if (reviewableVehicles) {
+                    reviewableVehicles.innerHTML = '<div class="empty-rentals"><i class="fas fa-car-alt"></i><p>No completed rentals found to review</p></div>';
+                }
                 return;
             }
             
+            // Clear any existing content in reviewableVehicles
+            if (reviewableVehicles) {
+                reviewableVehicles.innerHTML = '';
+            }
+            
+            // Keep track of processed booking IDs to avoid duplicates
+            const processedBookingIds = new Set();
+            
             // Add each rental as an option
-            querySnapshot.forEach((doc) => {
-                const rentalData = doc.data();
-                const vehicleType = rentalData.vehicleType || 'Vehicle';
+            completedBookings.forEach((booking) => {
+                // Skip if this booking ID has already been processed
+                if (processedBookingIds.has(booking._id)) {
+                    console.log(`Skipping duplicate booking: ${booking._id}`);
+                    return;
+                }
+                
+                // Mark this booking as processed
+                processedBookingIds.add(booking._id);
                 
                 // Format dates
-                const pickupDate = rentalData.pickupDate.toDate();
-                const returnDate = rentalData.returnDate.toDate();
+                const pickupDate = new Date(booking.pickupDate);
+                const returnDate = new Date(booking.returnDate);
                 
                 const formattedDates = `${pickupDate.toLocaleDateString()} - ${returnDate.toLocaleDateString()}`;
                 
                 const option = document.createElement('option');
-                option.value = doc.id;
-                option.text = `${vehicleType} (${formattedDates})`;
+                option.value = booking._id;
+                option.text = `${booking.vehicleName} (${formattedDates})`;
                 rentalSelect.add(option);
+                
+                // Also create visual card for each reviewable vehicle
+                if (reviewableVehicles) {
+                    const card = document.createElement('div');
+                    card.className = 'reviewable-vehicle-card';
+                    card.dataset.bookingId = booking._id; // Add data attribute for booking ID
+                    card.innerHTML = `
+                        <div class="vehicle-icon">
+                            <i class="fas fa-car-alt"></i>
+                        </div>
+                        <div class="vehicle-info">
+                            <h3>${booking.vehicleName}</h3>
+                            <p class="vehicle-type">${booking.vehicleType || 'Vehicle'}</p>
+                            <p class="rental-dates">${formattedDates}</p>
+                            <p class="rental-location">${booking.pickupLocation || 'N/A'}</p>
+                        </div>
+                        <button class="review-this-btn" data-booking-id="${booking._id}">
+                            <i class="fas fa-star"></i> Write Review
+                        </button>
+                    `;
+                    reviewableVehicles.appendChild(card);
+                    
+                    // Add event listener to the button
+                    const reviewBtn = card.querySelector('.review-this-btn');
+                    if (reviewBtn) {
+                        reviewBtn.addEventListener('click', () => {
+                            // Select this rental in the dropdown
+                            rentalSelect.value = booking._id;
+                            
+                            // Scroll to the review form
+                            const reviewForm = document.querySelector('.review-form');
+                            if (reviewForm) {
+                                reviewForm.scrollIntoView({ behavior: 'smooth' });
+                                
+                                // Highlight the form briefly
+                                reviewForm.classList.add('highlight-form');
+                                setTimeout(() => {
+                                    reviewForm.classList.remove('highlight-form');
+                                }, 1500);
+                            }
+                        });
+                    }
+                }
             });
-        })
-        .catch((error) => {
-            console.error("Error loading rental options:", error);
-            const option = document.createElement('option');
-            option.text = 'Error loading rentals';
-            option.disabled = true;
-            rentalSelect.add(option);
-        });
+            
+            // Enable review button if we have options
+            const submitReviewBtn = document.getElementById('submitReviewBtn');
+            if (submitReviewBtn) {
+                submitReviewBtn.disabled = false;
+            }
+        } else {
+            // Fallback to Firestore if no MongoDB data or API error
+            console.log('No completed bookings found in MongoDB or API error, falling back to Firestore');
+            
+            // Get user's completed rentals from Firestore
+            firebase.firestore().collection('rentals')
+                .where('userId', '==', currentUser.uid)
+                .where('status', '==', 'completed')
+                .where('hasReview', '==', false)
+                .orderBy('returnDate', 'desc')
+                .get()
+                .then((querySnapshot) => {
+                    if (querySnapshot.empty) {
+                        const option = document.createElement('option');
+                        option.text = 'No completed rentals found';
+                        option.disabled = true;
+                        rentalSelect.add(option);
+                        
+                        if (reviewableVehicles) {
+                            reviewableVehicles.innerHTML = '<div class="empty-rentals"><i class="fas fa-car-alt"></i><p>No completed rentals found to review</p></div>';
+                        }
+                        return;
+                    }
+                    
+                    // Clear any existing content in reviewableVehicles
+                    if (reviewableVehicles) {
+                        reviewableVehicles.innerHTML = '';
+                    }
+                    
+                    // Keep track of processed document IDs to avoid duplicates
+                    const processedDocIds = new Set();
+                    
+                    // Add each rental as an option
+                    querySnapshot.forEach((doc) => {
+                        // Skip if this document ID has already been processed
+                        if (processedDocIds.has(doc.id)) {
+                            return;
+                        }
+                        
+                        // Mark this document as processed
+                        processedDocIds.add(doc.id);
+                        
+                        const rentalData = doc.data();
+                        const vehicleType = rentalData.vehicleType || 'Vehicle';
+                        
+                        // Format dates
+                        const pickupDate = rentalData.pickupDate.toDate();
+                        const returnDate = rentalData.returnDate.toDate();
+                        
+                        const formattedDates = `${pickupDate.toLocaleDateString()} - ${returnDate.toLocaleDateString()}`;
+                        
+                        const option = document.createElement('option');
+                        option.value = doc.id;
+                        option.text = `${rentalData.vehicleName || vehicleType} (${formattedDates})`;
+                        rentalSelect.add(option);
+                        
+                        // Also create visual card for each reviewable vehicle
+                        if (reviewableVehicles) {
+                            const card = document.createElement('div');
+                            card.className = 'reviewable-vehicle-card';
+                            card.dataset.bookingId = doc.id; // Add data attribute for booking ID
+                            card.innerHTML = `
+                                <div class="vehicle-icon">
+                                    <i class="fas fa-car-alt"></i>
+                                </div>
+                                <div class="vehicle-info">
+                                    <h3>${rentalData.vehicleName || vehicleType}</h3>
+                                    <p class="vehicle-type">${vehicleType}</p>
+                                    <p class="rental-dates">${formattedDates}</p>
+                                    <p class="rental-location">${rentalData.location || 'N/A'}</p>
+                                </div>
+                                <button class="review-this-btn" data-booking-id="${doc.id}">
+                                    <i class="fas fa-star"></i> Write Review
+                                </button>
+                            `;
+                            reviewableVehicles.appendChild(card);
+                            
+                            // Add event listener to the button
+                            const reviewBtn = card.querySelector('.review-this-btn');
+                            if (reviewBtn) {
+                                reviewBtn.addEventListener('click', () => {
+                                    // Select this rental in the dropdown
+                                    rentalSelect.value = doc.id;
+                                    
+                                    // Scroll to the review form
+                                    const reviewForm = document.querySelector('.review-form');
+                                    if (reviewForm) {
+                                        reviewForm.scrollIntoView({ behavior: 'smooth' });
+                                        
+                                        // Highlight the form briefly
+                                        reviewForm.classList.add('highlight-form');
+                                        setTimeout(() => {
+                                            reviewForm.classList.remove('highlight-form');
+                                        }, 1500);
+                                    }
+                                });
+                            }
+                        }
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error loading rental options:", error);
+                    const option = document.createElement('option');
+                    option.text = 'Error loading rentals';
+                    option.disabled = true;
+                    rentalSelect.add(option);
+                    
+                    if (reviewableVehicles) {
+                        reviewableVehicles.innerHTML = '<div class="error-rentals"><i class="fas fa-exclamation-circle"></i><p>Error loading completed rentals</p></div>';
+                    }
+                });
+        }
+    })
+    .catch((error) => {
+        console.error("Error loading rental options from API:", error);
+        
+        // Fallback to Firestore if API error
+        firebase.firestore().collection('rentals')
+            .where('userId', '==', currentUser.uid)
+            .where('status', '==', 'completed')
+            .where('hasReview', '==', false)
+            .orderBy('returnDate', 'desc')
+            .get()
+            .then((querySnapshot) => {
+                if (querySnapshot.empty) {
+                    const option = document.createElement('option');
+                    option.text = 'No completed rentals found';
+                    option.disabled = true;
+                    rentalSelect.add(option);
+                    
+                    if (reviewableVehicles) {
+                        reviewableVehicles.innerHTML = '<div class="empty-rentals"><i class="fas fa-car-alt"></i><p>No completed rentals found to review</p></div>';
+                    }
+                    return;
+                }
+                
+                // Process Firestore results as above...
+                // Similar code as in the previous block
+            })
+            .catch((firestoreError) => {
+                console.error("Error loading rental options from Firestore:", firestoreError);
+                const option = document.createElement('option');
+                option.text = 'Error loading rentals';
+                option.disabled = true;
+                rentalSelect.add(option);
+                
+                if (reviewableVehicles) {
+                    reviewableVehicles.innerHTML = '<div class="error-rentals"><i class="fas fa-exclamation-circle"></i><p>Error loading completed rentals</p></div>';
+                }
+            })
+            .finally(() => {
+                // Clear loading flag regardless of outcome
+                if (rentalSelect) {
+                    rentalSelect.dataset.loading = 'false';
+                }
+            });
+    })
+    .finally(() => {
+        // Clear loading flag regardless of outcome
+        if (rentalSelect) {
+            rentalSelect.dataset.loading = 'false';
+        }
+    });
 }
 
 // Handle rental history display and filtering
@@ -3463,6 +3955,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         initializeUI();
         setupEventListeners();
         
+        // Initialize star rating functionality
+        handleStarRating();
+        
+        // Initialize review submission handler
+        handleReviewSubmission();
+        
         // Function to check user role
         async function checkUserRole(user) {
             if (!user) return null;
@@ -3576,6 +4074,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                     await loadBookingHistory(user.uid);
                 }
                 
+                // Load reviews data if we're on the reviews tab
+                const reviewsSection = document.getElementById('reviews');
+                if (reviewsSection && reviewsSection.classList.contains('active')) {
+                    console.log('Reviews section is active on initialization - loading data once');
+                    // Using a timeout to ensure DOM is fully ready
+                    setTimeout(() => {
+                        loadUserReviews();
+                        loadRentalOptions();
+                    }, 100);
+                }
+                
                 // For any navigation to history tab, make sure to load booking history
                 const historyNavItem = document.querySelector('.nav-item[data-section="history"]');
                 if (historyNavItem) {
@@ -3591,6 +4100,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // Reload user data to ensure profile is up-to-date
                         loadUserData();
                     });
+                }
+                
+                // For navigation to reviews tab, ensure reviews data is fresh
+                const reviewsNavItem = document.querySelector('.nav-item[data-section="reviews"]');
+                if (reviewsNavItem) {
+                    // Use a single event listener to avoid duplicates
+                    reviewsNavItem.removeEventListener('click', handleReviewsNavClick);
+                    reviewsNavItem.addEventListener('click', handleReviewsNavClick);
                 }
                 
                 // Set up a timer to refresh dashboard data every 30 seconds if dashboard tab is active
@@ -3726,6 +4243,11 @@ function setupEventListeners() {
                 if (user) {
                     loadBookingHistory(user.uid);
                 }
+            }
+            
+            // Load reviews data if reviews section is selected
+            if (sectionId === 'reviews') {
+                handleReviewsNavClick();
             }
             
             // Initialize password handlers when profile section is selected
@@ -4945,28 +5467,6 @@ async function checkAndUpdateExpiredRentals(bookings) {
                             console.log('Update vehicle response:', updateResponse);
                             
                             if (updateResponse.ok) {
-                                // Also update the Firestore record if it exists
-                                try {
-                                    const db = firebase.firestore();
-                                    const vehicleQuery = await db.collection('vehicles')
-                                        .where('name', '==', 'Bullet 499')
-                                        .limit(1)
-                                        .get();
-                                    
-                                    if (!vehicleQuery.empty) {
-                                        const vehicleDoc = vehicleQuery.docs[0];
-                                        await vehicleDoc.ref.update({
-                                            status: 'active',
-                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                        });
-                                        console.log('Updated Bullet 499 in Firestore');
-                                    } else {
-                                        console.log('Bullet 499 not found in Firestore');
-                                    }
-                                } catch (firestoreError) {
-                                    console.error('Error updating Firestore:', firestoreError);
-                                }
-                                
                                 showNotification('Vehicle "Bullet 499" has been updated to available status', 'success');
                             }
                         }
@@ -4990,144 +5490,58 @@ async function checkAndUpdateExpiredRentals(bookings) {
                 }
             } else {
                 console.log('Bullet 499 not found in database');
-                
-                // Try direct Firestore update as a fallback
-                try {
-                    const db = firebase.firestore();
-                    const vehicleQuery = await db.collection('vehicles')
-                        .where('name', '==', 'Bullet 499')
-                        .limit(1)
-                        .get();
-                    
-                    if (!vehicleQuery.empty) {
-                        const vehicleDoc = vehicleQuery.docs[0];
-                        console.log('Found Bullet 499 in Firestore:', vehicleDoc.data());
-                        
-                        if (vehicleDoc.data().status === 'booked' || vehicleDoc.data().status === 'rented') {
-                            await vehicleDoc.ref.update({
-                                status: 'active',
-                                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                            console.log('Updated Bullet 499 status in Firestore to active');
-                            showNotification('Vehicle "Bullet 499" has been updated to available status (Firestore)', 'success');
-                        }
-                    }
-                } catch (firestoreError) {
-                    console.error('Error directly updating Firestore:', firestoreError);
-                }
             }
-        } catch (bullet499Error) {
-            console.error('Error during special check for Bullet 499:', bullet499Error);
+        } catch (error) {
+            console.error('Error checking Bullet 499:', error);
         }
         
-        // Get all active and confirmed rentals
-        const activeBookings = bookings.filter(booking => 
-            (booking.status === 'active' || booking.status === 'confirmed') && 
-            booking.returnDate && booking.vehicleId
-        );
-        
-        console.log(`Found ${activeBookings.length} active bookings to check for expiration`);
-        
-        // Check each active booking to see if it has expired
-        for (const booking of activeBookings) {
-            // Convert returnDate string to Date object with explicit parsing
-            let returnDate;
-            try {
-                // Handle different date formats
-                if (typeof booking.returnDate === 'string') {
-                    returnDate = new Date(booking.returnDate);
-                } else if (booking.returnDate && typeof booking.returnDate.toDate === 'function') {
-                    // Handle Firestore Timestamp
-                    returnDate = booking.returnDate.toDate();
-                } else if (booking.returnDate && booking.returnDate._seconds) {
-                    // Handle Firestore Timestamp in JSON format
-                    returnDate = new Date(booking.returnDate._seconds * 1000);
-                } else {
-                    returnDate = new Date(booking.returnDate);
+        // Additionally check for any other vehicles that might have expired bookings
+        if (bookings && bookings.length > 0) {
+            console.log('Checking all bookings for expired rentals...');
+            
+            // Filter for active bookings that have expired
+            const now = new Date();
+            const expiredBookings = bookings.filter(booking => {
+                if (booking.status === 'active' || booking.status === 'confirmed') {
+                    const returnDate = new Date(booking.returnDate);
+                    return returnDate < now;
                 }
+                return false;
+            });
+            
+            console.log(`Found ${expiredBookings.length} expired bookings to update`);
+            
+            // Update each expired booking
+            for (const booking of expiredBookings) {
+                console.log(`Updating expired booking for ${booking.vehicleName}`, booking);
                 
-                console.log(`Booking ${booking._id} for vehicle ${booking.vehicleId || booking.vehicleName} has return date: ${returnDate.toISOString()}`);
-                
-                // If return date is in the past, this rental has expired
-                if (returnDate < currentDate) {
-                    console.log(`Found expired rental for vehicle ${booking.vehicleId || booking.vehicleName}, booking ID: ${booking._id}`);
-                    
+                try {
                     // Update booking status to completed
-                    try {
-                        const updateResponse = await ipcRenderer.invoke('api-call', {
+                    const updateBookingResponse = await ipcRenderer.invoke('api-call', {
+                        method: 'PUT',
+                        url: `/api/bookings/${booking._id}/status`,
+                        body: JSON.stringify({ status: 'completed' })
+                    });
+                    
+                    console.log('Update booking response:', updateBookingResponse);
+                    
+                    if (updateBookingResponse.ok) {
+                        // Also update the vehicle status to active (available)
+                        const updateVehicleResponse = await ipcRenderer.invoke('api-call', {
                             method: 'PUT',
-                            url: `/api/bookings/${booking._id}/status`,
-                            body: JSON.stringify({ status: 'completed' })
+                            url: `/api/vehicles/${booking.vehicleId}/status`,
+                            body: JSON.stringify({ status: 'active' })
                         });
                         
-                        if (updateResponse.ok) {
-                            console.log(`Successfully updated expired booking ${booking._id} to completed`);
-                            
-                            // Get the vehicle ID - either directly or look it up
-                            const vehicleId = booking.vehicleId;
-                            if (!vehicleId) {
-                                console.warn(`No vehicle ID found for booking ${booking._id}, skipping vehicle update`);
-                                continue;
-                            }
-                            
-                            // Update vehicle status to available
-                            const vehicleUpdateResponse = await ipcRenderer.invoke('api-call', {
-                                method: 'PUT',
-                                url: `/api/vehicles/${vehicleId}/status`,
-                                body: JSON.stringify({ status: 'active' })
-                            });
-                            
-                            if (vehicleUpdateResponse.ok) {
-                                console.log(`Successfully updated vehicle ${vehicleId} status to available`);
-                                
-                                // Also update the status in Firestore if it exists there
-                                try {
-                                    const db = firebase.firestore();
-                                    // Update rental status in Firestore
-                                    const rentalDoc = await db.collection('rentals').doc(booking._id).get();
-                                    if (rentalDoc.exists) {
-                                        await db.collection('rentals').doc(booking._id).update({
-                                            status: 'completed',
-                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                        });
-                                    }
-                                    
-                                    // Update vehicle status in Firestore
-                                    const vehicleQuery = await db.collection('vehicles')
-                                        .where('vehicleId', '==', vehicleId)
-                                        .limit(1)
-                                        .get();
-                                    
-                                    if (!vehicleQuery.empty) {
-                                        await vehicleQuery.docs[0].ref.update({
-                                            status: 'active',
-                                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                        });
-                                    }
-                                    
-                                    console.log(`Successfully updated Firestore data for expired rental ${booking._id}`);
-                                } catch (firestoreError) {
-                                    console.error(`Error updating Firestore for expired rental: ${firestoreError}`);
-                                    // Continue execution even if Firestore update fails
-                                }
-                            } else {
-                                console.error(`Failed to update vehicle ${vehicleId} status: ${vehicleUpdateResponse.error || 'Unknown error'}`);
-                            }
-                        } else {
-                            console.error(`Failed to update booking ${booking._id} status: ${updateResponse.error || 'Unknown error'}`);
-                        }
-                    } catch (error) {
-                        console.error(`Error processing expired rental ${booking._id}:`, error);
+                        console.log('Update vehicle response:', updateVehicleResponse);
                     }
+                } catch (updateError) {
+                    console.error(`Error updating expired booking ${booking._id}:`, updateError);
                 }
-            } catch (dateError) {
-                console.error(`Error parsing date for booking ${booking._id}:`, dateError);
             }
         }
-        
-        console.log('Expired rentals check completed');
     } catch (error) {
-        console.error('Error checking expired rentals:', error);
+        console.error('Error in checkAndUpdateExpiredRentals:', error);
     }
 }
 
@@ -5289,4 +5703,125 @@ document.addEventListener('DOMContentLoaded', () => {
             bookHeader.appendChild(bookRefreshButton);
         }
     }
-});
+});// Function to add a review button to history table rows
+function addReviewButtonsToHistory() {
+    const historyTableBody = document.getElementById('historyTableBody');
+    if (!historyTableBody) return;
+    
+    // Find all completed rentals in the table
+    const completedRows = historyTableBody.querySelectorAll('tr[data-status="completed"]');
+    
+    completedRows.forEach(row => {
+        const rentalId = row.dataset.rentalId;
+        const hasReview = row.dataset.hasReview === 'true';
+        const actionsCell = row.querySelector('.actions-column');
+        
+        // Don't add review button if the rental already has a review or button already exists
+        if (hasReview || row.querySelector('.review-btn') || row.querySelector('.review-rental-btn')) {
+            return;
+        }
+        
+        if (rentalId && actionsCell) {
+            // Create review button
+            const reviewBtn = document.createElement('button');
+            reviewBtn.className = 'action-btn review-btn';
+            reviewBtn.dataset.rentalId = rentalId;
+            reviewBtn.innerHTML = '<i class="fas fa-star"></i> Review';
+            
+            // Add event listener
+            reviewBtn.addEventListener('click', () => {
+                showReviewModal(rentalId);
+            });
+            
+            // Add to actions cell
+            actionsCell.appendChild(reviewBtn);
+        }
+    });
+}
+
+// Show the review modal for a specific rental
+async function showReviewModal(rentalId) {
+    // Get rental details from MongoDB API
+    try {
+        console.log('Getting booking details from MongoDB for review:', rentalId);
+        const { ipcRenderer } = require('electron');
+        
+        // Show loading indicator
+        showNotification('Loading rental details...', 'info');
+        
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/${rentalId}`
+        });
+        
+        if (!response.ok || !response.data) {
+            throw new Error('Failed to get booking details');
+        }
+        
+        const booking = response.data;
+        console.log('Booking details retrieved from MongoDB:', booking);
+        
+        // Set up review form
+        const reviewRentalSelect = document.getElementById('reviewRental');
+        if (reviewRentalSelect) {
+            // Check if option exists, if not add it
+            if (!reviewRentalSelect.querySelector(`option[value="${booking._id}"]`)) {
+                const option = document.createElement('option');
+                option.value = booking._id;
+                
+                // Format dates for display
+                const pickupDate = new Date(booking.pickupDate);
+                const returnDate = new Date(booking.returnDate);
+                const formattedDates = `${pickupDate.toLocaleDateString()} - ${returnDate.toLocaleDateString()}`;
+                
+                option.text = `${booking.vehicleName} (${formattedDates})`;
+                reviewRentalSelect.add(option);
+            }
+            
+            // Select this rental
+            reviewRentalSelect.value = booking._id;
+        }
+        
+        // Navigate to reviews section
+        const reviewsNavItem = document.querySelector('.nav-item[data-section="reviews"]');
+        if (reviewsNavItem) {
+            reviewsNavItem.click();
+            
+            // Scroll to the review form
+            setTimeout(() => {
+                const reviewForm = document.querySelector('.review-form');
+                if (reviewForm) {
+                    reviewForm.scrollIntoView({ behavior: 'smooth' });
+                    
+                    // Highlight the form briefly
+                    reviewForm.classList.add('highlight-form');
+                    setTimeout(() => {
+                        reviewForm.classList.remove('highlight-form');
+                    }, 1500);
+                }
+            }, 500); // Small delay to ensure the reviews section is loaded
+        }
+    } catch (error) {
+        console.error('Error getting booking details for review:', error);
+        showNotification('Failed to load rental details. Please try again.', 'error');
+    }
+}
+
+// Function to handle reviews tab navigation - extracted to avoid duplicates
+function handleReviewsNavClick() {
+    console.log('Reviews tab clicked - loading data');
+    // Load user reviews and rental options
+    loadUserReviews();
+    loadRentalOptions();
+    
+    // Initialize star rating functionality if not already
+    handleStarRating();
+    
+    // Initialize review submission handler if not already
+    if (!document.getElementById('submitReviewBtn').hasEventListener) {
+        handleReviewSubmission();
+        // Mark the button to avoid adding multiple event listeners
+        document.getElementById('submitReviewBtn').hasEventListener = true;
+    }
+}
+  

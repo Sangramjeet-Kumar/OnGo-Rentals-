@@ -5,6 +5,7 @@ const Agent = require('../models/Agent');
 const Booking = require('../models/Booking');
 const Customer = require('../models/Customer');
 const mongoose = require('mongoose');
+const Review = require('../models/Review');
 
 // IMPORTANT: Order matters - put more specific routes before less specific ones
 // GET current rentals for an agent
@@ -2014,6 +2015,179 @@ router.get('/bookings/search', async (req, res) => {
     } catch (error) {
         console.error('Error in bookings search endpoint:', error);
         return res.status(500).json({ message: 'Internal server error', error: error.message });
+    }
+});
+
+// === REVIEWS ROUTES ===
+
+// Create a new review
+router.post('/reviews', async (req, res) => {
+    try {
+        console.log('Creating new review:', req.body);
+        
+        const { userId, userName, bookingId, rating, comments, createdAt } = req.body;
+        
+        // Validate required fields
+        if (!userId || !bookingId || !rating || !comments) {
+            return res.status(400).json({ message: 'Missing required fields' });
+        }
+        
+        // Validate bookingId is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+            return res.status(400).json({ 
+                message: 'Invalid booking ID format', 
+                details: `The provided booking ID "${bookingId}" is not a valid MongoDB ObjectId.`
+            });
+        }
+        
+        // Check if booking exists
+        try {
+            const booking = await Booking.findById(bookingId);
+            if (!booking) {
+                return res.status(404).json({ 
+                    message: 'Booking not found',
+                    details: `No booking found with ID: ${bookingId}`
+                });
+            }
+            
+            // Create review document
+            const review = new Review({
+                userId,
+                userName: userName || 'Anonymous User',
+                bookingId,
+                vehicleId: booking.vehicleId,
+                vehicleName: booking.vehicleName,
+                rating: parseInt(rating),
+                comments,
+                createdAt: createdAt || new Date().toISOString(),
+            });
+            
+            // Save review to database
+            const savedReview = await review.save();
+            console.log('Review saved successfully:', savedReview);
+            
+            // Update booking with hasReview flag
+            booking.hasReview = true;
+            booking.rating = parseInt(rating);
+            await booking.save();
+            
+            // If vehicle exists, update its average rating
+            try {
+                const vehicle = await Vehicle.findById(booking.vehicleId);
+                if (vehicle) {
+                    // Find all reviews for this vehicle
+                    const vehicleReviews = await Review.find({ vehicleId: vehicle._id });
+                    
+                    // Calculate average rating
+                    if (vehicleReviews && vehicleReviews.length > 0) {
+                        const totalRating = vehicleReviews.reduce((sum, review) => sum + review.rating, 0);
+                        const averageRating = totalRating / vehicleReviews.length;
+                        
+                        // Update vehicle rating
+                        vehicle.rating = {
+                            average: parseFloat(averageRating.toFixed(1)),
+                            count: vehicleReviews.length
+                        };
+                        await vehicle.save();
+                        
+                        console.log(`Updated vehicle rating to ${vehicle.rating.average} (${vehicleReviews.length} reviews)`);
+                    }
+                }
+            } catch (vehicleError) {
+                console.error('Error updating vehicle rating:', vehicleError);
+                // Continue anyway, the review was saved successfully
+            }
+            
+            res.status(201).json(savedReview);
+        } catch (bookingError) {
+            console.error('Error finding booking:', bookingError);
+            return res.status(500).json({ 
+                message: 'Error finding booking', 
+                details: bookingError.message 
+            });
+        }
+    } catch (error) {
+        console.error('Error creating review:', error);
+        res.status(500).json({ 
+            message: 'Failed to create review', 
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+        });
+    }
+});
+
+// Get reviews for a specific user
+router.get('/reviews/user/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // Validate user ID
+        if (!userId) {
+            return res.status(400).json({ message: 'User ID is required' });
+        }
+        
+        // Find all reviews by this user
+        const reviews = await Review.find({ userId }).sort({ createdAt: -1 });
+        
+        console.log(`Found ${reviews.length} reviews for user ${userId}`);
+        res.json(reviews);
+    } catch (error) {
+        console.error('Error fetching user reviews:', error);
+        res.status(500).json({ message: 'Failed to fetch reviews', error: error.message });
+    }
+});
+
+// Get reviews for a specific vehicle
+router.get('/reviews/vehicle/:vehicleId', async (req, res) => {
+    try {
+        const { vehicleId } = req.params;
+        
+        // Validate vehicle ID
+        if (!vehicleId) {
+            return res.status(400).json({ message: 'Vehicle ID is required' });
+        }
+        
+        // Find all reviews for this vehicle
+        const reviews = await Review.find({ vehicleId }).sort({ createdAt: -1 });
+        
+        console.log(`Found ${reviews.length} reviews for vehicle ${vehicleId}`);
+        res.json(reviews);
+    } catch (error) {
+        console.error('Error fetching vehicle reviews:', error);
+        res.status(500).json({ message: 'Failed to fetch reviews', error: error.message });
+    }
+});
+
+// Update booking review status
+router.put('/bookings/:id/review', async (req, res) => {
+    try {
+        const bookingId = req.params.id;
+        const { hasReview, rating } = req.body;
+        
+        // Validate booking ID
+        if (!bookingId) {
+            return res.status(400).json({ message: 'Booking ID is required' });
+        }
+        
+        // Find and update the booking
+        const booking = await Booking.findById(bookingId);
+        
+        if (!booking) {
+            return res.status(404).json({ message: 'Booking not found' });
+        }
+        
+        // Update booking with review status
+        booking.hasReview = hasReview;
+        if (rating) {
+            booking.rating = parseInt(rating);
+        }
+        
+        const updatedBooking = await booking.save();
+        
+        res.json(updatedBooking);
+    } catch (error) {
+        console.error('Error updating booking review status:', error);
+        res.status(500).json({ message: 'Failed to update booking', error: error.message });
     }
 });
 

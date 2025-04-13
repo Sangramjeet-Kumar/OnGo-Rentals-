@@ -1123,22 +1123,7 @@ function setupInventoryActionButtons() {
                     });
                     
                     if (!response.ok) {
-                        // Check for specific error about active bookings
-                        if (response.data && response.data.message && response.data.message.includes('active bookings')) {
-                            throw new Error(`Cannot delete vehicle: It has ${response.data.activeBookingsCount || 'active'} booking(s)`);
-                        }
                         throw new Error(response.data?.message || 'Failed to delete vehicle from MongoDB');
-                    }
-                    
-                    // Also delete from Firebase if the ID exists
-                    if (firebaseId) {
-                        try {
-                            await firebase.firestore().collection('vehicles').doc(firebaseId).delete();
-                            console.log(`Deleted vehicle from Firebase with ID: ${firebaseId}`);
-                        } catch (firebaseError) {
-                            console.warn('Could not delete from Firebase:', firebaseError);
-                            // Continue anyway as MongoDB is the source of truth
-                        }
                     }
                     
                     // Visual feedback - fade out row
@@ -1292,21 +1277,13 @@ function handleAddVehicleForm() {
                 
                 console.log('Sending vehicle data to API:', JSON.stringify(formData));
                 
-                // Save to Firebase first for compatibility
-                console.log('Saving to Firebase...');
-                const vehicleRef = firebase.firestore().collection('vehicles').doc();
-                await vehicleRef.set({
-                    ...formData,
-                    firebaseId: vehicleRef.id
-                });
-                
-                console.log('Firebase save successful. Vehicle ID:', vehicleRef.id);
-                console.log('Now saving to MongoDB...');
+                // Generate a unique ID for the vehicle (formerly used for Firebase)
+                const uniqueId = 'vehicle_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
                 
                 // Prepare data for MongoDB - ensure type is lowercase to match validation
                 const vehicleData = {
                     ...formData,
-                    firebaseId: vehicleRef.id,
+                    uniqueId: uniqueId,
                     type: formData.type.toLowerCase(),
                     // Map 'available' status to 'active' to match the enum values in the Vehicle model
                     status: formData.status === 'available' ? 'active' : formData.status,
@@ -1991,35 +1968,8 @@ async function checkAndUpdateExpiredRentals(rentals) {
                         });
                         
                         if (vehicleUpdateResponse.ok) {
-                            console.log(`Successfully updated vehicle ${rental.vehicleId} status to available`);
+                            console.log(`Successfully updated vehicle ${rental.vehicleId} status to available in MongoDB`);
                             updatedCount++;
-                            
-                            // Also update the status in Firestore if it exists there
-                            try {
-                                // Update rental status in Firestore
-                                await firebase.firestore().collection('rentals').doc(rental._id).update({
-                                    status: 'completed',
-                                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                });
-                                
-                                // Update vehicle status in Firestore
-                                const vehicleDoc = await firebase.firestore().collection('vehicles')
-                                    .where('vehicleId', '==', rental.vehicleId)
-                                    .limit(1)
-                                    .get();
-                                
-                                if (!vehicleDoc.empty) {
-                                    await vehicleDoc.docs[0].ref.update({
-                                        status: 'active',
-                                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                    });
-                                }
-                                
-                                console.log(`Successfully updated Firestore data for expired rental ${rental._id}`);
-                            } catch (firestoreError) {
-                                console.error(`Error updating Firestore for expired rental: ${firestoreError}`);
-                                // Continue execution even if Firestore update fails
-                            }
                         } else {
                             console.error(`Failed to update vehicle ${rental.vehicleId} status: ${vehicleUpdateResponse.error || 'Unknown error'}`);
                         }
