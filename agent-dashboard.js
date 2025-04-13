@@ -425,6 +425,9 @@ document.addEventListener('DOMContentLoaded', async function() {
             }).catch(err => {
                 console.error('Failed to load inventory on initial page load:', err);
             });
+            
+            // Setup events for past rentals section
+            setupPastRentalsEvents();
         });
         
         // Set up logout handler with redirection flag
@@ -501,43 +504,74 @@ function handleNavigation() {
     const sections = document.querySelectorAll('.content-section');
     
     navItems.forEach(item => {
+        if (!item) return; // Skip if item is null
+        
         item.addEventListener('click', (e) => {
             e.preventDefault();
             
             // Remove active class from all items and sections
-            navItems.forEach(navItem => navItem.classList.remove('active'));
-            sections.forEach(section => section.classList.remove('active'));
+            navItems.forEach(navItem => {
+                if (navItem && navItem.classList) navItem.classList.remove('active');
+            });
+            
+            sections.forEach(section => {
+                if (section && section.classList) section.classList.remove('active');
+            });
             
             // Add active class to clicked item
-            item.classList.add('active');
+            if (item.classList) item.classList.add('active');
             
             // Show corresponding section
             const sectionId = item.getAttribute('data-section');
-            document.getElementById(sectionId).classList.add('active');
-            
-            // Conditional actions based on section
-            if (sectionId === 'inventory') {
-                console.log('Navigating to inventory section, refreshing data');
-                loadInventory()
-                    .then(() => console.log('Inventory refreshed on navigation'))
-                    .catch(err => console.error('Failed to refresh inventory on navigation:', err));
-            } else if (sectionId === 'current-rentals') {
-                console.log('Navigating to current rentals section, refreshing data');
-                // Get the current user
-                const user = firebase.auth().currentUser;
-                if (user) {
-                    loadCurrentRentals(user.uid);
-                } else {
-                    console.error('No user found when trying to load current rentals');
-                }
+            if (!sectionId) {
+                console.error('No data-section attribute found on nav item');
+                return;
             }
             
-            // Animate section entry
-            const activeSection = document.getElementById(sectionId);
-            activeSection.style.animation = 'none';
-            // Trigger reflow
-            void activeSection.offsetWidth;
-            activeSection.style.animation = 'fadeIn 0.5s ease-in-out';
+            const sectionElement = document.getElementById(sectionId);
+            
+            // Fix: Add null check before accessing classList property
+            if (sectionElement && sectionElement.classList) {
+                sectionElement.classList.add('active');
+                
+                // Conditional actions based on section
+                if (sectionId === 'inventory') {
+                    console.log('Navigating to inventory section, refreshing data');
+                    loadInventory()
+                        .then(() => console.log('Inventory refreshed on navigation'))
+                        .catch(err => console.error('Failed to refresh inventory on navigation:', err));
+                } else if (sectionId === 'current-rentals') {
+                    console.log('Navigating to current rentals section, refreshing data');
+                    // Get the current user
+                    const user = firebase.auth().currentUser;
+                    if (user) {
+                        loadCurrentRentals(user.uid);
+                    } else {
+                        console.error('No user found when trying to load current rentals');
+                    }
+                } else if (sectionId === 'past-rentals') {
+                    console.log('Navigating to past rentals section, refreshing data');
+                    // Get the current user
+                    const user = firebase.auth().currentUser;
+                    if (user) {
+                        loadPastRentals(user.uid);
+                    } else {
+                        console.error('No user found when trying to load past rentals');
+                    }
+                }
+                
+                // Animate section entry
+                try {
+                    sectionElement.style.animation = 'none';
+                    // Trigger reflow
+                    void sectionElement.offsetWidth;
+                    sectionElement.style.animation = 'fadeIn 0.5s ease-in-out';
+                } catch (err) {
+                    console.error('Error animating section:', err);
+                }
+            } else {
+                console.error(`Section with ID "${sectionId}" not found in the DOM`);
+            }
         });
     });
     
@@ -546,19 +580,35 @@ function handleNavigation() {
     if (addVehicleBtn) {
         addVehicleBtn.addEventListener('click', () => {
             // Switch to add vehicle section
-            navItems.forEach(navItem => navItem.classList.remove('active'));
-            sections.forEach(section => section.classList.remove('active'));
+            navItems.forEach(navItem => {
+                if (navItem && navItem.classList) navItem.classList.remove('active');
+            });
+            
+            sections.forEach(section => {
+                if (section && section.classList) section.classList.remove('active');
+            });
             
             // Find and activate the add vehicle nav item and section
             const addVehicleNavItem = document.querySelector('.nav-item[data-section="add-vehicle"]');
-            addVehicleNavItem.classList.add('active');
-            const addVehicleSection = document.getElementById('add-vehicle');
-            addVehicleSection.classList.add('active');
+            if (addVehicleNavItem && addVehicleNavItem.classList) {
+                addVehicleNavItem.classList.add('active');
+            }
             
-            // Animate section entry
-            addVehicleSection.style.animation = 'none';
-            void addVehicleSection.offsetWidth;
-            addVehicleSection.style.animation = 'fadeIn 0.5s ease-in-out';
+            const addVehicleSection = document.getElementById('add-vehicle');
+            if (addVehicleSection && addVehicleSection.classList) {
+                addVehicleSection.classList.add('active');
+                
+                // Animate section entry
+                try {
+                    addVehicleSection.style.animation = 'none';
+                    void addVehicleSection.offsetWidth;
+                    addVehicleSection.style.animation = 'fadeIn 0.5s ease-in-out';
+                } catch (err) {
+                    console.error('Error animating add vehicle section:', err);
+                }
+            } else {
+                console.error('Add Vehicle section not found in the DOM');
+            }
         });
     }
 }
@@ -577,6 +627,13 @@ function loadAgentData(user, db) {
                 
                 // Also load current rentals
                 loadCurrentRentals(user.uid);
+                
+                // Also load past rentals if we're on that section
+                const pastRentalsSection = document.getElementById('past-rentals');
+                // Fix: Add null check before accessing classList property
+                if (pastRentalsSection && pastRentalsSection.classList && pastRentalsSection.classList.contains('active')) {
+                    loadPastRentals(user.uid);
+                }
             } else {
                 // Check if the user is an agent in the users collection
                 db.collection('users').doc(user.uid).get()
@@ -659,29 +716,33 @@ function loadDashboardMetrics(db) {
     }, 500);
 }
 
-// Animate counter
-function animateCounter(elementId, start, end, duration, prefix = '') {
+// Animation function for counters to prevent errors if it's not defined elsewhere
+function countUp(element, start, end, duration, prefix = '') {
+    if (!element) return;
+    
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        const value = Math.floor(progress * (end - start) + start);
+        element.innerText = prefix + value;
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        }
+    };
+    window.requestAnimationFrame(step);
+}
+
+// Function to animate counters
+function animateCounter(elementId, start, end, duration = 1000, prefix = '') {
     const element = document.getElementById(elementId);
-    const range = end - start;
-    const increment = end > start ? 1 : -1;
-    const stepTime = Math.abs(Math.floor(duration / range));
+    if (!element) {
+        console.error(`Element with ID ${elementId} not found for counter animation`);
+        return;
+    }
     
-    let current = start;
-    
-    const timer = setInterval(() => {
-        current += increment;
-        
-        // Format currency
-        if (elementId === 'monthlyRevenue') {
-            element.textContent = `${prefix}${current.toLocaleString()}`;
-        } else {
-            element.textContent = current;
-        }
-        
-        if (current === end) {
-            clearInterval(timer);
-        }
-    }, stepTime);
+    // Use countUp function
+    countUp(element, start, end, duration, prefix);
 }
 
 // Initialize charts
@@ -2546,4 +2607,329 @@ async function fetchBookingDetails(bookingId) {
         console.error(`Error fetching booking details for ID ${bookingId}:`, error);
         return null;
     }
-} 
+}
+
+// Load past rentals for agent
+async function loadPastRentals(agentId) {
+    console.log('Loading past rentals for agent:', agentId);
+    
+    // References to UI elements
+    const pastRentalsContainer = document.querySelector('.past-rentals-container');
+    const pastRentalsTable = document.querySelector('.past-rentals-table-container');
+    const pastRentalsLoading = document.querySelector('.past-rentals-loading');
+    const pastRentalsEmpty = document.querySelector('.past-rentals-empty');
+    const tableBody = document.getElementById('pastRentalsTableBody');
+    
+    // Show loading state - add null checks for safety
+    if (pastRentalsTable && pastRentalsTable.classList) pastRentalsTable.classList.add('hidden');
+    if (pastRentalsEmpty && pastRentalsEmpty.classList) pastRentalsEmpty.classList.add('hidden');
+    if (pastRentalsLoading && pastRentalsLoading.classList) pastRentalsLoading.classList.remove('hidden');
+    
+    try {
+        // Fetch completed rentals from MongoDB
+        const { ipcRenderer } = require('electron');
+        
+        console.log(`Navigating to past rentals section, refreshing data for agent: ${agentId}`);
+        
+        console.log(`Making API request to /api/bookings/completed/agent/${agentId}`);
+        const response = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/completed/agent/${agentId}`
+        });
+        
+        console.log('Response from API:', response);
+        
+        // Hide loading spinner
+        if (pastRentalsLoading && pastRentalsLoading.classList) pastRentalsLoading.classList.add('hidden');
+        
+        // Handle empty or error response
+        if (!response || !response.ok || !response.data || !Array.isArray(response.data) || response.data.length === 0) {
+            console.log('No past rentals found for agent', agentId);
+            console.log('Response details:', JSON.stringify(response, null, 2));
+            
+            // If we got a 404 error, try a fallback approach with direct MongoDB queries
+            if (response && response.status === 404) {
+                try {
+                    console.log('Trying fallback approach with direct MongoDB query');
+                    
+                    // Make a direct query to the database for completed bookings
+                    const fallbackResponse = await ipcRenderer.invoke('api-call', {
+                        method: 'GET',
+                        url: `/api/bookings/search?agentId=${agentId}&status=completed`
+                    });
+                    
+                    if (fallbackResponse && fallbackResponse.ok && Array.isArray(fallbackResponse.data) && fallbackResponse.data.length > 0) {
+                        console.log(`Fallback successful! Found ${fallbackResponse.data.length} completed rentals`);
+                        
+                        // Show table and populate it with fallback data
+                        if (pastRentalsTable && pastRentalsTable.classList) pastRentalsTable.classList.remove('hidden');
+                        if (tableBody) {
+                            populatePastRentalsTable(fallbackResponse.data, tableBody);
+                            return;
+                        }
+                    } else {
+                        console.log('Fallback approach did not find any completed rentals');
+                    }
+                } catch (fallbackError) {
+                    console.error('Error in fallback approach:', fallbackError);
+                }
+            }
+            
+            // Show empty state if both regular and fallback approaches fail
+            if (pastRentalsEmpty && pastRentalsEmpty.classList) pastRentalsEmpty.classList.remove('hidden');
+            return;
+        }
+        
+        // Process and display rentals
+        const pastRentals = response.data;
+        console.log(`Found ${pastRentals.length} past rentals:`, pastRentals);
+        
+        // Show table and populate it
+        if (pastRentalsTable && pastRentalsTable.classList) pastRentalsTable.classList.remove('hidden');
+        if (tableBody) {
+            populatePastRentalsTable(pastRentals, tableBody);
+        } else {
+            console.error('Table body element not found, cannot populate past rentals table');
+        }
+        
+    } catch (error) {
+        console.error('Error loading past rentals:', error);
+        
+        // Show error state
+        if (pastRentalsLoading && pastRentalsLoading.classList) pastRentalsLoading.classList.add('hidden');
+        
+        if (pastRentalsEmpty && pastRentalsEmpty.classList) {
+            pastRentalsEmpty.classList.remove('hidden');
+            pastRentalsEmpty.innerHTML = `
+                <i class="fas fa-exclamation-triangle" style="color: #ef4444;"></i>
+                <h3>Failed to load past rentals</h3>
+                <p>${error.message || 'An unexpected error occurred'}</p>
+                <button class="retry-btn" onclick="loadPastRentals('${agentId}')">
+                    <i class="fas fa-sync-alt"></i> Retry
+                </button>
+            `;
+        }
+    }
+}
+
+// Function to populate past rentals table
+function populatePastRentalsTable(rentals, tableBody) {
+    if (!tableBody) return;
+    
+    // Clear existing content
+    tableBody.innerHTML = '';
+    
+    // Enrich the rentals with vehicle information if needed
+    enrichPastRentalsWithVehicleInfo(rentals)
+        .then(enrichedRentals => {
+            // Add each rental as a row
+            enrichedRentals.forEach(rental => {
+                const row = createPastRentalRow(rental);
+                tableBody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Error enriching rentals with vehicle info:', error);
+            // Fallback to using original data
+            rentals.forEach(rental => {
+                const row = createPastRentalRow(rental);
+                tableBody.appendChild(row);
+            });
+        });
+}
+
+// Function to enrich past rentals with vehicle information
+async function enrichPastRentalsWithVehicleInfo(rentals) {
+    try {
+        const { ipcRenderer } = require('electron');
+        const enrichedRentals = await Promise.all(rentals.map(async rental => {
+            // Skip if already has a proper vehicle name
+            if (rental.vehicleName && rental.vehicleName !== "undefined undefined" && rental.vehicleName !== "Unknown Vehicle") {
+                return rental;
+            }
+            
+            // Skip if no valid vehicleId
+            if (!rental.vehicleId || rental.vehicleId.startsWith('demo')) {
+                return rental;
+            }
+            
+            // Try to fetch vehicle details
+            try {
+                console.log(`Fetching vehicle details for ID: ${rental.vehicleId}`);
+                const response = await ipcRenderer.invoke('api-call', {
+                    method: 'GET',
+                    url: `/api/vehicles/${rental.vehicleId}`,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                if (response.ok && response.data) {
+                    console.log(`Successfully fetched vehicle details:`, response.data);
+                    // Create enriched rental with vehicle data
+                    return {
+                        ...rental,
+                        vehicleName: response.data.name || `${response.data.make || ''} ${response.data.model || ''}`.trim() || rental.vehicleName,
+                        make: response.data.make || '',
+                        model: response.data.model || '',
+                        vehicleType: response.data.type || rental.vehicleType
+                    };
+                }
+            } catch (error) {
+                console.error(`Error fetching vehicle with ID ${rental.vehicleId}:`, error);
+            }
+            
+            // Return original rental if fetch failed
+            return rental;
+        }));
+        
+        return enrichedRentals;
+    } catch (error) {
+        console.error('Error in enrichPastRentalsWithVehicleInfo:', error);
+        return rentals; // Return original rentals on error
+    }
+}
+
+// Function to create a single past rental row
+function createPastRentalRow(rental) {
+    const row = document.createElement('tr');
+    
+    // Format dates
+    const pickupDate = new Date(rental.pickupDate);
+    const returnDate = new Date(rental.returnDate);
+    
+    // Calculate duration in days
+    const durationMs = returnDate - pickupDate;
+    const durationDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+    
+    // Format dates for display
+    const formatDate = (date) => {
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    };
+    
+    // Format currency
+    const formatCurrency = (amount) => {
+        return '₹' + Number(amount || 0).toLocaleString('en-IN');
+    };
+    
+    // Determine vehicle type icon
+    let vehicleIcon = 'fa-car';
+    if (rental.vehicleType && rental.vehicleType.toLowerCase().includes('bike') ||
+        rental.vehicleType && rental.vehicleType.toLowerCase().includes('scooter')) {
+        vehicleIcon = 'fa-motorcycle';
+    }
+    
+    // Get or create a short version of renter ID
+    const renterId = rental.userId || rental.customerId || 'Unknown';
+    const shortRenterId = renterId.substring(0, 8) + '...';
+    
+    // Log the rental data for debugging
+    console.log('Rental data for row:', {
+        vehicleName: rental.vehicleName,
+        vehicleId: rental.vehicleId,
+        make: rental.make,
+        model: rental.model,
+        totalAmount: rental.totalAmount
+    });
+    
+    // Get vehicle name from various possible properties
+    let vehicleName = 'Unknown Vehicle';
+    if (rental.vehicleName && rental.vehicleName !== "undefined undefined") {
+        vehicleName = rental.vehicleName;
+    } else if (rental.make && rental.model) {
+        vehicleName = `${rental.make} ${rental.model}`;
+    } else if (rental.vehicleId) {
+        // Use a placeholder with the ID as reference
+        vehicleName = `Vehicle ID: ${rental.vehicleId.substring(0, 8)}...`;
+    }
+    
+    // Set the row content
+    row.innerHTML = `
+        <td>
+            <div class="vehicle-info">
+                <div class="vehicle-icon">
+                    <i class="fas ${vehicleIcon}"></i>
+                </div>
+                ${vehicleName}
+            </div>
+        </td>
+        <td>
+            <span class="category-badge ${rental.vehicleType?.toLowerCase() || 'standard'}">
+                ${rental.vehicleType || 'Standard'}
+            </span>
+        </td>
+        <td>
+            <span class="renter-id" title="${renterId}">${shortRenterId}</span>
+        </td>
+        <td>
+            <div class="rental-period">
+                <div>${formatDate(pickupDate)} <span class="rental-arrow">→</span> ${formatDate(returnDate)}</div>
+            </div>
+        </td>
+        <td>
+            <span class="duration">${durationDays} day${durationDays !== 1 ? 's' : ''}</span>
+        </td>
+        <td>
+            <div class="location-info">
+                <span class="location-label">Pickup</span>
+                ${rental.pickupLocation || 'Main Office'}
+            </div>
+        </td>
+        <td>
+            <div class="location-info">
+                <span class="location-label">Return</span>
+                ${rental.returnLocation || rental.pickupLocation || 'Main Office'}
+            </div>
+        </td>
+        <td>
+            <div class="amount-info">
+                <span class="amount">${formatCurrency(rental.totalAmount)}</span>
+            </div>
+        </td>
+        <td>
+            <button class="action-btn view-btn" data-booking-id="${rental._id}" title="View Details">
+                <i class="fas fa-eye"></i>
+            </button>
+        </td>
+    `;
+    
+    // Add event listener for view button
+    const viewBtn = row.querySelector('.view-btn');
+    if (viewBtn) {
+        viewBtn.addEventListener('click', async () => {
+            try {
+                const bookingDetails = await fetchFullBookingDetails(rental._id);
+                showBookingDetailsModal(bookingDetails);
+            } catch (error) {
+                console.error('Error fetching booking details:', error);
+                showNotification('Failed to load booking details', 'error');
+            }
+        });
+    }
+    
+    return row;
+}
+
+// Setup event listeners for past rentals section
+function setupPastRentalsEvents() {
+    const refreshBtn = document.getElementById('refreshPastRentals');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            const user = firebase.auth().currentUser;
+            if (user) {
+                loadPastRentals(user.uid);
+                showNotification('Refreshing past rentals...', 'info');
+            } else {
+                console.error('No user found when trying to refresh past rentals');
+                showNotification('Please log in to refresh past rentals', 'error');
+            }
+        });
+    } else {
+        console.error('Refresh button for past rentals not found');
+    }
+}

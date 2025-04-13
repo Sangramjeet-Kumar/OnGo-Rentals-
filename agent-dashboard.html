@@ -534,6 +534,52 @@
             
             <!-- Add more sections here for Current Rentals, Past Rentals, etc. -->
 
+            <!-- Past Rentals Section -->
+            <section id="past-rentals" class="content-section">
+                <div class="section-header">
+                    <h1>Past Rentals</h1>
+                    <div class="filter-controls">
+                        <button class="refresh-btn" id="refreshPastRentals">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="past-rentals-container">
+                    <div class="past-rentals-table-container">
+                        <table class="past-rentals-table">
+                            <thead>
+                                <tr>
+                                    <th>Vehicle Name</th>
+                                    <th>Category</th>
+                                    <th>Renter ID</th>
+                                    <th>Rental Period</th>
+                                    <th>Duration</th>
+                                    <th>Pickup Location</th>
+                                    <th>Return Location</th>
+                                    <th>Total Amount</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pastRentalsTableBody">
+                                <!-- Past rental rows will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="past-rentals-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Loading past rentals...</p>
+                    </div>
+                    
+                    <div class="past-rentals-empty hidden">
+                        <i class="fas fa-history"></i>
+                        <h3>No Past Rentals Found</h3>
+                        <p>Completed rentals will appear here.</p>
+                    </div>
+                </div>
+            </section>
+
             <!-- Notification Component -->
             <div id="notification" class="notification">
                 <div class="notification-icon">
