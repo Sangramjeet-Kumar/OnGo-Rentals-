@@ -117,7 +117,7 @@
                     
                     <div class="stat-card">
                         <div class="stat-icon purple">
-                            <i class="fas fa-clock"></i>
+                            <i class="fas fa-car"></i>
                         </div>
                         <div class="stat-info">
                             <h3>Available Vehicles</h3>
@@ -822,7 +822,7 @@
                                 <label for="phoneNumber">Phone Number</label>
                                 <div class="input-with-icon">
                                     <i class="fas fa-phone"></i>
-                                    <input type="tel" id="phoneNumber" placeholder="Your phone number">
+                                    <input type="tel" id="phoneNumber" placeholder="Your phone number" pattern="[0-9]{10}" maxlength="10" title="Phone number must be exactly 10 digits">
                                 </div>
                             </div>
                         </div>
@@ -878,7 +878,7 @@
                                 <label for="postalCode">Postal Code</label>
                                 <div class="input-with-icon">
                                     <i class="fas fa-mail-bulk"></i>
-                                    <input type="text" id="postalCode" placeholder="Your postal code">
+                                    <input type="text" id="postalCode" placeholder="Your postal code" pattern="[0-9]{6}" maxlength="6" title="Postal code must be exactly 6 digits">
                                 </div>
                             </div>
                         </div>
@@ -933,7 +933,14 @@
                                 <label for="taxId">Tax ID / GST Number</label>
                                 <div class="input-with-icon">
                                     <i class="fas fa-receipt"></i>
-                                    <input type="text" id="taxId" placeholder="Your tax ID or GST number">
+                                    <input 
+                                        type="text" 
+                                        id="taxId" 
+                                        placeholder="Your tax ID or GST number" 
+                                        pattern="[0-9A-Z]{15}" 
+                                        maxlength="15" 
+                                        minlength="15" 
+                                        title="GST number must be exactly 15 characters (digits and capital letters only)">
                                 </div>
                             </div>
                         </div>

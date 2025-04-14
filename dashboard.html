@@ -357,7 +357,7 @@
                                         <label>Phone Number</label>
                                         <div class="input-with-icon">
                                             <i class="fas fa-phone"></i>
-                                            <input type="tel" id="phoneNumber" placeholder="Your phone number">
+                                            <input type="tel" id="phoneNumber" placeholder="Your phone number" pattern="[0-9]{10}" maxlength="10" title="Phone number must be exactly 10 digits">
                                         </div>
                                     </div>
                                 </div>
@@ -412,7 +412,7 @@
                                         <label>Postal Code</label>
                                         <div class="input-with-icon">
                                             <i class="fas fa-mail-bulk"></i>
-                                            <input type="text" id="postalCode" placeholder="Your postal code">
+                                            <input type="text" id="postalCode" placeholder="Enter 6-digit postal code" pattern="[0-9]{6}" maxlength="6" title="Postal code must be exactly 6 digits">
                                         </div>
                                     </div>
                                 </div>
@@ -423,7 +423,7 @@
                                         <label>Driver's License</label>
                                         <div class="input-with-icon">
                                             <i class="fas fa-id-card"></i>
-                                            <input type="text" id="driversLicense" placeholder="License number">
+                                            <input type="text" id="driversLicense" placeholder="Enter 16-digit license number" pattern="[0-9]{16}" maxlength="16" title="Driver's license must be exactly 16 digits">
                                         </div>
                                     </div>
                                     
