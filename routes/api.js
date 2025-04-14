@@ -2018,7 +2018,18 @@ router.get('/bookings/search', async (req, res) => {
     }
 });
 
-// === REVIEWS ROUTES ===
+// =========================================================
+// REVIEW ROUTES
+// =========================================================
+// POST /reviews - Create a new review
+// GET /reviews - Get all reviews with pagination and filtering (admin)
+// GET /reviews/user/:userId - Get reviews by user ID
+// GET /reviews/vehicle/:vehicleId - Get reviews by vehicle ID
+// GET /reviews/agent/:agentId - Get reviews by agent ID
+// GET /reviews/:id - Get a single review by ID
+// PUT /reviews/:id/status - Update a review's status (admin)
+// DELETE /reviews/:id - Delete a review (admin)
+// =========================================================
 
 // Create a new review
 router.post('/reviews', async (req, res) => {
@@ -2141,20 +2152,59 @@ router.get('/reviews/user/:userId', async (req, res) => {
 router.get('/reviews/vehicle/:vehicleId', async (req, res) => {
     try {
         const { vehicleId } = req.params;
+        const { status, bookingId } = req.query;
         
         // Validate vehicle ID
         if (!vehicleId) {
             return res.status(400).json({ message: 'Vehicle ID is required' });
         }
+
+        // Validate vehicleId is a valid MongoDB ObjectId
+        if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Invalid vehicle ID format' 
+            });
+        }
+
+        // Build the query
+        const query = { vehicleId };
         
-        // Find all reviews for this vehicle
-        const reviews = await Review.find({ vehicleId }).sort({ createdAt: -1 });
+        // Add optional filters if provided
+        if (status) {
+            query.status = status;
+        }
+        
+        if (bookingId) {
+            // Validate bookingId is a valid MongoDB ObjectId
+            if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Invalid booking ID format'
+                });
+            }
+            query.bookingId = bookingId;
+        }
+        
+        // Find all reviews for this vehicle with the given filters
+        const reviews = await Review.find(query)
+            .populate('userId', 'name profileImage')
+            .sort({ createdAt: -1 });
         
         console.log(`Found ${reviews.length} reviews for vehicle ${vehicleId}`);
-        res.json(reviews);
+        
+        res.status(200).json({
+            success: true,
+            count: reviews.length,
+            data: reviews
+        });
     } catch (error) {
         console.error('Error fetching vehicle reviews:', error);
-        res.status(500).json({ message: 'Failed to fetch reviews', error: error.message });
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to fetch reviews', 
+            error: error.message 
+        });
     }
 });
 
@@ -2188,6 +2238,325 @@ router.put('/bookings/:id/review', async (req, res) => {
     } catch (error) {
         console.error('Error updating booking review status:', error);
         res.status(500).json({ message: 'Failed to update booking', error: error.message });
+    }
+});
+
+// Route to get a single review by ID
+router.get('/reviews/:id', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+
+        if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+            return res.status(400).json({ success: false, message: "Invalid review ID format" });
+        }
+
+        const review = await Review.findById(reviewId)
+            .populate('userId', 'name profileImage')
+            .populate('vehicleId', 'make model year images')
+            .populate('bookingId', 'startDate endDate amount status')
+            .populate('agentId', 'name businessName');
+
+        if (!review) {
+            return res.status(404).json({ success: false, message: "Review not found" });
+        }
+        
+        res.status(200).json({ 
+            success: true, 
+            data: review 
+        });
+    } catch (error) {
+        console.error("Error fetching review:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Route to update a review's status (for admin/moderator)
+router.put('/reviews/:id/status', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+        const { status, responseComment } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+            return res.status(400).json({ success: false, message: "Invalid review ID format" });
+        }
+
+        if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
+            return res.status(400).json({ success: false, message: "Invalid status. Status must be 'pending', 'approved', or 'rejected'" });
+        }
+
+        const review = await Review.findById(reviewId);
+
+        if (!review) {
+            return res.status(404).json({ success: false, message: "Review not found" });
+        }
+
+        // Update the review status
+        review.status = status;
+        
+        // If there's a response comment, add it with the current date
+        if (responseComment) {
+            review.response = {
+                comment: responseComment,
+                date: new Date()
+            };
+        }
+
+        const updatedReview = await review.save();
+        
+        res.status(200).json({ 
+            success: true, 
+            message: `Review status updated to ${status}`,
+            data: updatedReview 
+        });
+    } catch (error) {
+        console.error("Error updating review status:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Route to delete a review (for admin/moderator)
+router.delete('/reviews/:id', async (req, res) => {
+    try {
+        const reviewId = req.params.id;
+
+        if (!mongoose.Types.ObjectId.isValid(reviewId)) {
+            return res.status(400).json({ success: false, message: "Invalid review ID format" });
+        }
+
+        const review = await Review.findById(reviewId);
+
+        if (!review) {
+            return res.status(404).json({ success: false, message: "Review not found" });
+        }
+
+        // Get the associated vehicle to update its rating
+        const vehicle = await Vehicle.findById(review.vehicleId);
+        
+        // Delete the review
+        await Review.findByIdAndDelete(reviewId);
+        
+        // If there's a vehicle, update its reviews array and recalculate rating
+        if (vehicle) {
+            // Remove the review ID from the vehicle's reviews array
+            vehicle.reviews = vehicle.reviews.filter(id => id.toString() !== reviewId.toString());
+            
+            // Recalculate vehicle rating if needed
+            if (vehicle.reviews.length > 0) {
+                const vehicleReviews = await Review.find({ vehicleId: vehicle._id, status: 'approved' });
+                if (vehicleReviews.length > 0) {
+                    const totalRating = vehicleReviews.reduce((sum, review) => sum + review.rating, 0);
+                    vehicle.rating.average = totalRating / vehicleReviews.length;
+                    vehicle.rating.count = vehicleReviews.length;
+                } else {
+                    vehicle.rating.average = 0;
+                    vehicle.rating.count = 0;
+                }
+            } else {
+                vehicle.rating.average = 0;
+                vehicle.rating.count = 0;
+            }
+            
+            await vehicle.save();
+        }
+        
+        res.status(200).json({ 
+            success: true, 
+            message: "Review deleted successfully"
+        });
+    } catch (error) {
+        console.error("Error deleting review:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Route to get all reviews (for admin/moderator) with pagination and filtering
+router.get('/reviews', async (req, res) => {
+    try {
+        const { 
+            page = 1, 
+            limit = 10, 
+            status, 
+            sortBy = 'createdAt', 
+            sortOrder = 'desc',
+            vehicleId,
+            userId,
+            agentId,
+            bookingId,
+            minRating,
+            maxRating
+        } = req.query;
+
+        // Build query object for filtering
+        const query = {};
+        
+        // Add filters if provided
+        if (status) {
+            query.status = status;
+        }
+        
+        if (vehicleId) {
+            if (!mongoose.Types.ObjectId.isValid(vehicleId)) {
+                return res.status(400).json({ success: false, message: "Invalid vehicle ID format" });
+            }
+            query.vehicleId = vehicleId;
+        }
+        
+        if (userId) {
+            query.userId = userId;
+        }
+        
+        if (agentId) {
+            if (!mongoose.Types.ObjectId.isValid(agentId)) {
+                return res.status(400).json({ success: false, message: "Invalid agent ID format" });
+            }
+            query.agentId = agentId;
+        }
+        
+        if (bookingId) {
+            if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+                return res.status(400).json({ success: false, message: "Invalid booking ID format" });
+            }
+            query.bookingId = bookingId;
+        }
+        
+        // Rating range filter
+        if (minRating) {
+            query.rating = { $gte: Number(minRating) };
+        }
+        
+        if (maxRating) {
+            if (query.rating) {
+                query.rating.$lte = Number(maxRating);
+            } else {
+                query.rating = { $lte: Number(maxRating) };
+            }
+        }
+
+        // Validate sort parameters
+        const allowedSortFields = ['createdAt', 'rating', 'status'];
+        const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+        const order = sortOrder === 'asc' ? 1 : -1;
+        
+        // Calculate pagination values
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const skip = (pageNum - 1) * limitNum;
+
+        // Get total count for pagination
+        const totalReviews = await Review.countDocuments(query);
+        
+        // Find reviews with the built query
+        const reviews = await Review.find(query)
+            .populate('userId', 'name profileImage')
+            .populate('vehicleId', 'make model year images')
+            .populate('bookingId', 'startDate endDate')
+            .populate('agentId', 'name businessName')
+            .sort({ [sortField]: order })
+            .skip(skip)
+            .limit(limitNum);
+        
+        res.status(200).json({ 
+            success: true, 
+            count: reviews.length,
+            totalPages: Math.ceil(totalReviews / limitNum),
+            currentPage: pageNum,
+            data: reviews 
+        });
+    } catch (error) {
+        console.error("Error fetching reviews:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Route to get all reviews for a specific agent
+router.get('/reviews/agent/:agentId', async (req, res) => {
+    try {
+        const agentId = req.params.agentId;
+        const { status, bookingId } = req.query;
+
+        // Handle MongoDB ObjectId or Firebase UID for agent
+        let mongoAgentId;
+        let firebaseAgentId;
+        
+        if (mongoose.Types.ObjectId.isValid(agentId)) {
+            // If valid MongoDB ID
+            mongoAgentId = agentId;
+            // Try to find the agent to get the Firebase UID
+            try {
+                const agent = await Agent.findById(agentId);
+                if (agent) {
+                    firebaseAgentId = agent.firebaseUID;
+                }
+            } catch (error) {
+                console.error("Error finding agent by MongoDB ID:", error);
+            }
+        } else {
+            // If not a valid MongoDB ID, it might be a Firebase UID
+            firebaseAgentId = agentId;
+            // Try to find the agent by Firebase UID
+            try {
+                const agent = await Agent.findOne({ firebaseUID: agentId });
+                if (agent) {
+                    mongoAgentId = agent._id;
+                }
+            } catch (error) {
+                console.error("Error finding agent by Firebase UID:", error);
+            }
+        }
+
+        // Find all bookings for this agent
+        const agentBookings = await Booking.find({ agentId: mongoAgentId });
+        const agentBookingIds = agentBookings.map(booking => booking._id);
+        
+        console.log(`Found ${agentBookingIds.length} bookings for agent ${agentId}`);
+
+        // Build the query to find reviews either by agentId or by bookingId in the agent's bookings
+        let query = {
+            $or: [
+                // Direct agent ID matches (if review has agentId field)
+                { agentId: mongoAgentId },
+                { agentId: firebaseAgentId },
+                { firebaseAgentId: firebaseAgentId },
+                
+                // Match reviews for any of this agent's bookings
+                { bookingId: { $in: agentBookingIds } }
+            ]
+        };
+        
+        // Add optional filters if provided
+        if (status) {
+            query.status = status;
+        }
+        
+        if (bookingId) {
+            if (!mongoose.Types.ObjectId.isValid(bookingId)) {
+                return res.status(400).json({ success: false, message: "Invalid booking ID format" });
+            }
+            // Override the $or query to only look for this specific booking
+            query = { 
+                bookingId: bookingId,
+                ...query.status ? { status: query.status } : {}
+            };
+        }
+
+        console.log("Query for reviews:", JSON.stringify(query));
+
+        // Find reviews with the built query
+        const reviews = await Review.find(query)
+            .populate('userId', 'name profileImage')
+            .populate('vehicleId', 'make model year')
+            .sort({ createdAt: -1 });
+        
+        console.log(`Found ${reviews.length} reviews for agent ${agentId}`);
+
+        res.status(200).json({ 
+            success: true, 
+            count: reviews.length,
+            data: reviews 
+        });
+    } catch (error) {
+        console.error("Error fetching agent reviews:", error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

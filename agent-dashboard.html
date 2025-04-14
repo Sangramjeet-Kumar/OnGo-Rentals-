@@ -61,9 +61,9 @@
                     <i class="fas fa-star"></i>
                     <span>Reviews & Feedback</span>
                 </a>
-                <a href="#settings" class="nav-item" data-section="settings">
-                    <i class="fas fa-cog"></i>
-                    <span>Settings</span>
+                <a href="#profile" class="nav-item" data-section="profile">
+                    <i class="fas fa-user"></i>
+                    <span>Profile</span>
                 </a>
             </nav>
             
@@ -136,7 +136,7 @@
                     </div>
                 </div>
                 
-                <div class="dashboard-charts">
+                <!-- <div class="dashboard-charts">
                     <div class="chart-card">
                         <h3>Revenue Trends</h3>
                         <canvas id="revenueChart"></canvas>
@@ -145,7 +145,7 @@
                         <h3>Vehicle Utilization</h3>
                         <canvas id="utilizationChart"></canvas>
                     </div>
-                </div>
+                </div> -->
                 
                 <div class="dashboard-bottom">
                     <div class="recent-activity">
@@ -576,6 +576,412 @@
                         <i class="fas fa-history"></i>
                         <h3>No Past Rentals Found</h3>
                         <p>Completed rentals will appear here.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Pricing & Policies Section -->
+            <section id="pricing" class="content-section">
+                <div class="section-header">
+                    <h1>Pricing & Policies</h1>
+                </div>
+                
+                <div class="pricing-container">
+                    <div class="offers-section">
+                        <h3>Special Offers</h3>
+                        <div class="offers-grid">
+                            <!-- Weekly Discount Offer -->
+                            <div class="offer-card">
+                                <div class="offer-header">
+                                    <div class="offer-icon">
+                                        <i class="fas fa-percentage"></i>
+                                    </div>
+                                    <div class="offer-title">
+                                        <h4>Weekly Discount</h4>
+                                        <p class="discount-amount">10% OFF</p>
+                                    </div>
+                                </div>
+                                <div class="offer-content">
+                                    <p>Apply a 10% discount for rentals longer than one week.</p>
+                                    <div class="coupon-code">
+                                        <span>Coupon Code:</span>
+                                        <strong>WEEK10</strong>
+                                    </div>
+                                </div>
+                                <div class="offer-actions">
+                                    <button class="edit-offer-btn">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Monthly Discount Offer -->
+                            <div class="offer-card">
+                                <div class="offer-header">
+                                    <div class="offer-icon">
+                                        <i class="fas fa-tags"></i>
+                                    </div>
+                                    <div class="offer-title">
+                                        <h4>Monthly Discount</h4>
+                                        <p class="discount-amount">20% OFF</p>
+                                    </div>
+                                </div>
+                                <div class="offer-content">
+                                    <p>Apply a 20% discount for rentals longer than one month.</p>
+                                    <div class="coupon-code">
+                                        <span>Coupon Code:</span>
+                                        <strong>MONTH20</strong>
+                                    </div>
+                                </div>
+                                <div class="offer-actions">
+                                    <button class="edit-offer-btn">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="add-offer-action">
+                            <button class="add-offer-btn">
+                                <i class="fas fa-plus-circle"></i> Add New Offer
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="policies-section">
+                        <h3>Rental Policies</h3>
+                        <div class="policy-list">
+                            <!-- Rental policies will be added here -->
+                            <div class="policy-item">
+                                <h4><i class="fas fa-id-card"></i> Driver Requirements</h4>
+                                <p>Renters must be at least 21 years of age with a valid driver's license held for at least 1 year. International customers must provide a valid passport and international driving permit.</p>
+                            </div>
+                            
+                            <div class="policy-item">
+                                <h4><i class="fas fa-money-bill-wave"></i> Security Deposit</h4>
+                                <p>A security deposit of ₹1,000 - ₹10,000 (depending on vehicle type) is required at the time of pickup. The deposit will be refunded within 5-7 business days after the vehicle is returned undamaged.</p>
+                            </div>
+                            
+                            <div class="policy-item">
+                                <h4><i class="fas fa-file-contract"></i> Cancellation Policy</h4>
+                                <p>Free cancellation up to 12 hours before pickup. Cancellations less than 12 hours before pickup incur a 25% charge. No-shows result in a 50% charge of the total rental amount.</p>
+                            </div>
+                            
+                            <div class="policy-item">
+                                <h4><i class="fas fa-gas-pump"></i> Fuel Policy</h4>
+                                <p>Vehicles are provided with a full tank and should be returned with a full tank. If the vehicle is not returned with a full tank, a refueling fee will be charged.</p>
+                            </div>
+                            
+                            <div class="policy-item">
+                                <h4><i class="fas fa-route"></i> Mileage Limits</h4>
+                                <p>Standard rentals include 100 kilometers per day for cars and 80 kilometers per day for bikes. Additional kilometers will be charged at ₹10-₹15 per km depending on the vehicle.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Reviews & Feedback Section -->
+            <section id="reviews" class="content-section">
+                <div class="section-header">
+                    <h1>Reviews & Feedback</h1>
+                </div>
+                
+                <div class="reviews-container">
+                    <!-- Average Rating Card -->
+                    <div class="rating-summary-card">
+                        <div class="rating-header">
+                            <h3>Overall Rating</h3>
+                        </div>
+                        <div class="rating-content">
+                            <div class="average-rating">
+                                <div class="rating-score">
+                                    <span id="averageRatingValue">4.8</span>
+                                    <span class="out-of">/5</span>
+                                </div>
+                                <div class="rating-stars">
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star"></i>
+                                    <i class="fas fa-star-half-alt"></i>
+                                </div>
+                                <div class="total-reviews">
+                                    Based on <span id="totalReviewsCount">0</span> reviews
+                                </div>
+                            </div>
+                            <div class="rating-breakdown">
+                                <div class="rating-bar-item">
+                                    <span class="rating-label">5 <i class="fas fa-star"></i></span>
+                                    <div class="rating-bar">
+                                        <div class="rating-bar-fill" style="width: 75%"></div>
+                                    </div>
+                                    <span class="rating-count" id="fiveStarCount">0</span>
+                                </div>
+                                <div class="rating-bar-item">
+                                    <span class="rating-label">4 <i class="fas fa-star"></i></span>
+                                    <div class="rating-bar">
+                                        <div class="rating-bar-fill" style="width: 15%"></div>
+                                    </div>
+                                    <span class="rating-count" id="fourStarCount">0</span>
+                                </div>
+                                <div class="rating-bar-item">
+                                    <span class="rating-label">3 <i class="fas fa-star"></i></span>
+                                    <div class="rating-bar">
+                                        <div class="rating-bar-fill" style="width: 8%"></div>
+                                    </div>
+                                    <span class="rating-count" id="threeStarCount">0</span>
+                                </div>
+                                <div class="rating-bar-item">
+                                    <span class="rating-label">2 <i class="fas fa-star"></i></span>
+                                    <div class="rating-bar">
+                                        <div class="rating-bar-fill" style="width: 2%"></div>
+                                    </div>
+                                    <span class="rating-count" id="twoStarCount">0</span>
+                                </div>
+                                <div class="rating-bar-item">
+                                    <span class="rating-label">1 <i class="fas fa-star"></i></span>
+                                    <div class="rating-bar">
+                                        <div class="rating-bar-fill" style="width: 0%"></div>
+                                    </div>
+                                    <span class="rating-count" id="oneStarCount">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Customer Reviews Card -->
+                    <div class="customer-reviews-card">
+                        <div class="reviews-header">
+                            <h3>Customer Reviews</h3>
+                            <div class="reviews-filter">
+                                <select id="reviewsFilter">
+                                    <option value="all">All Reviews</option>
+                                    <option value="recent">Most Recent</option>
+                                    <option value="highest">Highest Rating</option>
+                                    <option value="lowest">Lowest Rating</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="reviews-list" id="agentReviewsList">
+                            <!-- Reviews will be populated here -->
+                            <div class="reviews-loading">
+                                <i class="fas fa-spinner fa-spin"></i>
+                                <p>Loading reviews...</p>
+                            </div>
+                        </div>
+                        <div class="reviews-empty hidden">
+                            <div class="empty-reviews-icon">
+                                <i class="far fa-comment-dots"></i>
+                            </div>
+                            <h3>No Reviews Yet</h3>
+                            <p>You haven't received any customer reviews yet. Reviews will appear here when customers rate their rental experience.</p>
+                        </div>
+                        <div class="reviews-pagination">
+                            <button id="prevReviewsPage" class="pagination-btn" disabled>
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </button>
+                            <span class="pagination-info">Page <span id="currentReviewsPage">1</span> of <span id="totalReviewsPages">1</span></span>
+                            <button id="nextReviewsPage" class="pagination-btn" disabled>
+                                Next <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Profile Section -->
+            <section id="profile" class="content-section">
+                <div class="section-header">
+                    <h1>My Profile</h1>
+                </div>
+                
+                <div class="profile-header-card">
+                    <div class="profile-avatar">
+                        <i class="fas fa-user-circle"></i>
+                    </div>
+                    <div class="profile-header-info">
+                        <h2 id="profileHeaderName">A</h2>
+                        <p id="profileHeaderEmail">a@gmail.com</p>
+                        <p>Member since: <span id="memberSince">March 2025</span></p>
+                    </div>
+                </div>
+                
+                <div class="profile-section">
+                    <h3 class="profile-section-title">Personal Information</h3>
+                    <div class="profile-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="fullName">Full Name</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-user"></i>
+                                    <input type="text" id="fullName" placeholder="Your full name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="phoneNumber">Phone Number</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-phone"></i>
+                                    <input type="tel" id="phoneNumber" placeholder="Your phone number">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="emailAddress">Email Address</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-envelope"></i>
+                                    <input type="email" id="emailAddress" placeholder="Your email address">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="dateOfBirth">Date of Birth</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-calendar"></i>
+                                    <input type="date" id="dateOfBirth">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-section">
+                    <h3 class="profile-section-title">Address Information</h3>
+                    <div class="profile-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="streetAddress">Street Address</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-home"></i>
+                                    <input type="text" id="streetAddress" placeholder="Your street address">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="city">City</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-city"></i>
+                                    <input type="text" id="city" placeholder="Your city">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="stateProvince">State/Province</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <input type="text" id="stateProvince" placeholder="Your state/province">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="postalCode">Postal Code</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-mail-bulk"></i>
+                                    <input type="text" id="postalCode" placeholder="Your postal code">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="profile-section">
+                    <h3 class="profile-section-title">Agency Information</h3>
+                    <div class="profile-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="agencyName">Agency Name</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-building"></i>
+                                    <input type="text" id="agencyName" placeholder="Your agency name">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="businessType">Business Type</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-briefcase"></i>
+                                    <select id="businessType">
+                                        <option value="">Select business type</option>
+                                        <option value="individual">Individual</option>
+                                        <option value="partnership">Partnership</option>
+                                        <option value="corporation">Corporation</option>
+                                        <option value="llc">LLC</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group full-width">
+                                <label for="businessAddress">Business Address</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                    <input type="text" id="businessAddress" placeholder="Your business address">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="businessLicense">Business License Number</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-id-card"></i>
+                                    <input type="text" id="businessLicense" placeholder="Your business license number">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="taxId">Tax ID / GST Number</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-receipt"></i>
+                                    <input type="text" id="taxId" placeholder="Your tax ID or GST number">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions profile-actions">
+                    <button type="button" class="cancel-btn">Cancel</button>
+                    <button type="button" id="updateProfileBtn" class="submit-btn">Save Changes</button>
+                </div>
+                
+                <div class="profile-section">
+                    <h3 class="profile-section-title">Password Management</h3>
+                    <div class="profile-form">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="currentPassword">Current Password</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-lock"></i>
+                                    <input type="password" id="currentPassword" placeholder="Enter your current password">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newPassword">New Password</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-key"></i>
+                                    <input type="password" id="newPassword" placeholder="Enter new password">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="confirmPassword">Confirm Password</label>
+                                <div class="input-with-icon">
+                                    <i class="fas fa-key"></i>
+                                    <input type="password" id="confirmPassword" placeholder="Confirm new password">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="password-requirements">
+                            <p><i class="fas fa-info-circle"></i> Password must be at least 8 characters long and contain a mix of letters, numbers, and special characters.</p>
+                        </div>
+                        
+                        <div class="password-actions">
+                            <button type="button" id="updatePasswordBtn" class="submit-btn">Change Password</button>
+                        </div>
                     </div>
                 </div>
             </section>

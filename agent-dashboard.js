@@ -625,8 +625,8 @@ function loadAgentData(user, db) {
                 loadDashboardMetrics(db);
                 loadInventory();
                 
-                // Also load current rentals
-                loadCurrentRentals(user.uid);
+                // Also load current rentals - defer slightly
+                setTimeout(() => loadCurrentRentals(user.uid), 0);
                 
                 // Also load past rentals if we're on that section
                 const pastRentalsSection = document.getElementById('past-rentals');
@@ -661,7 +661,8 @@ function loadAgentData(user, db) {
                                 
                                 loadDashboardMetrics(db);
                                 loadInventory();
-                                loadCurrentRentals(user.uid);
+                                // Load current rentals - defer slightly
+                                setTimeout(() => loadCurrentRentals(user.uid), 0);
                             })
                             .catch(error => {
                                 console.error('Error creating agent profile:', error);
@@ -681,7 +682,8 @@ function loadAgentData(user, db) {
                                 
                                 loadDashboardMetrics(db);
                                 loadInventory();
-                                loadCurrentRentals(user.uid);
+                                // Load current rentals - defer slightly
+                                setTimeout(() => loadCurrentRentals(user.uid), 0);
                             })
                             .catch(error => {
                                 console.error('Error creating agent profile:', error);
@@ -747,159 +749,114 @@ function animateCounter(elementId, start, end, duration = 1000, prefix = '') {
 
 // Initialize charts
 function initializeCharts() {
-    // Add loading state to charts
-    document.querySelectorAll('.chart-card').forEach(card => {
-        card.classList.add('loading');
-    });
-    
-    // Use requestAnimationFrame for better performance
-    requestAnimationFrame(() => {
-        // Revenue Chart
-        const revenueCtx = document.getElementById('revenueChart').getContext('2d');
-        
-        // Set chart responsiveness settings
-        Chart.defaults.responsive = true;
-        Chart.defaults.maintainAspectRatio = false;
-        
-        // Limit data points to prevent performance issues
-        const revenueMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
-        const revenueData = [65000, 72000, 68000, 78000, 82000, 85450];
-        
-        // Create chart with optimized settings
-        const revenueChart = new Chart(revenueCtx, {
+    // Revenue chart
+    const revenueChartCanvas = document.getElementById('revenueChart');
+    if (revenueChartCanvas) {
+        const revenueCtx = revenueChartCanvas.getContext('2d');
+        new Chart(revenueCtx, {
             type: 'line',
             data: {
-                labels: revenueMonths,
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
                 datasets: [{
-                    label: 'Revenue (₹)',
-                    data: revenueData,
-                    backgroundColor: 'rgba(37, 99, 235, 0.2)',
-                    borderColor: 'rgba(37, 99, 235, 1)',
-                    borderWidth: 3,
-                    tension: 0.4,
-                    pointBackgroundColor: '#ffffff',
-                    pointBorderColor: 'rgba(37, 99, 235, 1)',
-                    pointBorderWidth: 2,
-                    pointRadius: 6,
-                    pointHoverRadius: 8
+                    label: 'Monthly Revenue',
+                    data: [25000, 35000, 40000, 30000, 50000, 65000],
+                    borderColor: '#60a5fa',
+                    backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                    tension: 0.3,
+                    fill: true
                 }]
             },
             options: {
-                animation: {
-                    duration: 1000,  // Shorter animation for better performance
-                    easing: 'easeOutQuart'
-                },
                 responsive: true,
-                maintainAspectRatio: false,
                 plugins: {
                     legend: {
                         display: false
                     },
                     tooltip: {
-                        // Optimize tooltips
-                        enabled: true,
-                        mode: 'index',
-                        intersect: false,
-                        backgroundColor: 'rgba(30, 41, 59, 0.8)',
-                        titleColor: '#fff',
-                        bodyColor: '#fff',
-                        borderColor: 'rgba(37, 99, 235, 0.3)',
-                        borderWidth: 1
+                        backgroundColor: '#1e293b',
+                        titleColor: '#e2e8f0',
+                        bodyColor: '#e2e8f0',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        padding: 10,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return '₹' + context.parsed.y.toLocaleString();
+                            }
+                        }
                     }
                 },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        grace: '5%', // Add 5% padding to prevent touching the edges
-                        grid: {
-                            color: 'rgba(255, 255, 255, 0.1)',
-                            drawBorder: false
-                        },
-                        ticks: {
-                            color: 'rgba(226, 232, 240, 0.8)',
-                            maxTicksLimit: 6, // Limit the number of ticks for better readability
-                            callback: function(value) {
-                                // Format as currency
-                                return '₹' + value.toLocaleString();
-                            }
-                        }
-                    },
                     x: {
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)',
-                            display: false
+                            color: 'rgba(255, 255, 255, 0.05)'
                         },
                         ticks: {
-                            color: 'rgba(226, 232, 240, 0.8)'
+                            color: '#94a3b8'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        ticks: {
+                            color: '#94a3b8',
+                            callback: function(value) {
+                                return '₹' + value.toLocaleString();
+                            }
                         }
                     }
                 }
             }
         });
-        
-        // Utilization Chart with optimized settings
-        const utilizationCtx = document.getElementById('utilizationChart').getContext('2d');
-        const utilizationChart = new Chart(utilizationCtx, {
+    }
+    
+    // Utilization chart
+    const utilizationChartCanvas = document.getElementById('utilizationChart');
+    if (utilizationChartCanvas) {
+        const utilizationCtx = utilizationChartCanvas.getContext('2d');
+        new Chart(utilizationCtx, {
             type: 'doughnut',
             data: {
-                labels: ['Cars Available', 'Cars Rented', 'Bikes Available', 'Bikes Rented'],
+                labels: ['Rented', 'Available', 'Maintenance'],
                 datasets: [{
-                    data: [12, 6, 4, 2],
-                    backgroundColor: [
-                        'rgba(37, 99, 235, 0.8)',
-                        'rgba(245, 158, 11, 0.8)',
-                        'rgba(16, 185, 129, 0.8)',
-                        'rgba(139, 92, 246, 0.8)'
-                    ],
-                    borderColor: 'rgba(30, 41, 59, 1)',
-                    borderWidth: 2,
-                    hoverOffset: 5
+                    data: [8, 12, 4],
+                    backgroundColor: ['#60a5fa', '#34d399', '#f97316'],
+                    borderWidth: 0
                 }]
             },
             options: {
-                animation: {
-                    duration: 800,  // Faster animation
-                    easing: 'easeOutQuad'
-                },
                 responsive: true,
-                maintainAspectRatio: false,
+                cutout: '65%',
                 plugins: {
                     legend: {
                         position: 'bottom',
                         labels: {
-                            color: 'rgba(226, 232, 240, 0.8)',
+                            color: '#94a3b8',
                             padding: 15,
                             font: {
                                 size: 12
-                            },
-                            usePointStyle: true,
-                            pointStyle: 'circle'
+                            }
                         }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(30, 41, 59, 0.8)',
-                        titleColor: '#fff',
-                        bodyColor: '#fff',
-                        displayColors: true,
-                        padding: 10
-                    }
-                },
-                cutout: '65%',
-                layout: {
-                    padding: {
-                        bottom: 30  // Add padding for the legend
+                        backgroundColor: '#1e293b',
+                        titleColor: '#e2e8f0',
+                        bodyColor: '#e2e8f0',
+                        borderColor: '#334155',
+                        borderWidth: 1,
+                        padding: 10,
+                        callbacks: {
+                            label: function(context) {
+                                return context.parsed + ' vehicles';
+                            }
+                        }
                     }
                 }
             }
         });
-        
-        // Remove loading state from charts
-        setTimeout(() => {
-            document.querySelectorAll('.chart-card').forEach(card => {
-                card.classList.remove('loading');
-            });
-        }, 500);
-    });
+    }
 }
 
 // Handle vehicle inventory tabs
@@ -2882,4 +2839,1342 @@ function setupPastRentalsEvents() {
     } else {
         console.error('Refresh button for past rentals not found');
     }
+}
+
+// Handle the agent profile section
+function handleAgentProfile() {
+    const updateProfileBtn = document.getElementById('updateProfileBtn');
+    const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+    const cancelBtn = document.querySelector('.profile-actions .cancel-btn');
+    
+    // Load profile data when section becomes active
+    document.querySelector('.nav-item[data-section="profile"]').addEventListener('click', function() {
+        const userId = firebase.auth().currentUser?.uid;
+        if (userId) {
+            loadAgentProfileData(userId);
+        }
+    });
+    
+    // Handle profile form submission
+    if (updateProfileBtn) {
+        updateProfileBtn.addEventListener('click', function() {
+            saveAgentProfile();
+        });
+    }
+    
+    // Handle password update
+    if (updatePasswordBtn) {
+        updatePasswordBtn.addEventListener('click', function() {
+            updatePassword();
+        });
+    }
+    
+    // Handle cancel button
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', function() {
+            const userId = firebase.auth().currentUser?.uid;
+            if (userId) {
+                loadAgentProfileData(userId); // Reload the original data
+            }
+        });
+    }
+    
+    // Handle password change
+    const newPasswordField = document.getElementById('newPassword');
+    const confirmPasswordField = document.getElementById('confirmPassword');
+    
+    if (confirmPasswordField) {
+        confirmPasswordField.addEventListener('input', function() {
+            validatePasswordMatch(newPasswordField, confirmPasswordField);
+        });
+    }
+}
+
+// Load agent profile data
+async function loadAgentProfileData(userId) {
+    try {
+        const db = firebase.firestore();
+        const user = firebase.auth().currentUser;
+        
+        // Get agent data from Firestore
+        const agentSnapshot = await db.collection('agents').doc(userId).get();
+        
+        if (agentSnapshot.exists) {
+            const agentData = agentSnapshot.data();
+            console.log('Loaded agent data:', agentData);
+            
+            // Update header info
+            const profileHeaderName = document.getElementById('profileHeaderName');
+            const profileHeaderEmail = document.getElementById('profileHeaderEmail');
+            const memberSince = document.getElementById('memberSince');
+            
+            if (profileHeaderName) profileHeaderName.textContent = agentData.name || user.displayName || user.email.substring(0, 1).toUpperCase();
+            if (profileHeaderEmail) profileHeaderEmail.textContent = user.email || agentData.email;
+            
+            // Format the creation date if available
+            if (memberSince) {
+                if (user.metadata && user.metadata.creationTime) {
+                    const creationDate = new Date(user.metadata.creationTime);
+                    const options = { year: 'numeric', month: 'long' };
+                    memberSince.textContent = creationDate.toLocaleDateString('en-US', options);
+                } else if (agentData.createdAt) {
+                    // Handle different timestamp formats
+                    let creationDate;
+                    if (agentData.createdAt.toDate) {
+                        creationDate = agentData.createdAt.toDate(); // Firebase Timestamp
+                    } else if (agentData.createdAt.seconds) {
+                        creationDate = new Date(agentData.createdAt.seconds * 1000); // Firebase Timestamp as object
+                    } else if (typeof agentData.createdAt === 'string') {
+                        creationDate = new Date(agentData.createdAt); // ISO string format
+                    }
+                    
+                    if (creationDate) {
+                        const options = { year: 'numeric', month: 'long' };
+                        memberSince.textContent = creationDate.toLocaleDateString('en-US', options);
+                    }
+                }
+            }
+            
+            // Update form fields
+            document.getElementById('fullName').value = agentData.name || '';
+            document.getElementById('phoneNumber').value = agentData.phone || '';
+            document.getElementById('emailAddress').value = user.email || agentData.email || '';
+            document.getElementById('dateOfBirth').value = agentData.dateOfBirth || '';
+            
+            // Address information (handle possible structure differences)
+            if (agentData.address && typeof agentData.address === 'object') {
+                // If address is an object with properties
+                document.getElementById('streetAddress').value = agentData.address.street || '';
+                document.getElementById('city').value = agentData.address.city || '';
+                document.getElementById('stateProvince').value = agentData.address.state || '';
+                document.getElementById('postalCode').value = agentData.address.postalCode || '';
+            }
+            
+            // Agency information - directly map from MongoDB fields
+            document.getElementById('agencyName').value = agentData.agencyName || '';
+            document.getElementById('businessType').value = agentData.businessType || '';
+            
+            // Handle businessAddress - this is the field we saw in MongoDB
+            // MongoDB showed businessAddress as an Object, but we're using a single field input
+            if (agentData.businessAddress) {
+                if (typeof agentData.businessAddress === 'string') {
+                    // If it's already a string, use it directly
+                    document.getElementById('businessAddress').value = agentData.businessAddress;
+                } else if (typeof agentData.businessAddress === 'object') {
+                    // If it's an object, we need to format it
+                    const businessAddressObj = agentData.businessAddress;
+                    // Format it into a single string - adjust this based on your actual object structure
+                    let formattedAddress = '';
+                    if (businessAddressObj.street) formattedAddress += businessAddressObj.street;
+                    if (businessAddressObj.city) formattedAddress += (formattedAddress ? ', ' : '') + businessAddressObj.city;
+                    if (businessAddressObj.state) formattedAddress += (formattedAddress ? ', ' : '') + businessAddressObj.state;
+                    if (businessAddressObj.postalCode) formattedAddress += (formattedAddress ? ' ' : '') + businessAddressObj.postalCode;
+                    
+                    document.getElementById('businessAddress').value = formattedAddress;
+                }
+            } else {
+                document.getElementById('businessAddress').value = '';
+            }
+            
+            // Business license was shown in MongoDB
+            document.getElementById('businessLicense').value = agentData.businessLicense || '';
+            document.getElementById('taxId').value = agentData.taxId || '';
+            
+            // Also update the agent name in the dashboard welcome message
+            const agentNameElement = document.getElementById('agentName');
+            if (agentNameElement && agentData.name) {
+                agentNameElement.textContent = agentData.name;
+            }
+            
+        } else {
+            console.warn('Agent profile not found');
+            showNotification('Agent profile not found', 'warning');
+        }
+    } catch (error) {
+        console.error('Error loading agent profile:', error);
+        showNotification('Error loading profile information: ' + error.message, 'error');
+    }
+}
+
+// Save agent profile updates
+async function saveAgentProfile() {
+    try {
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            showNotification('You must be logged in to update your profile', 'error');
+            return;
+        }
+        
+        const updateProfileBtn = document.getElementById('updateProfileBtn');
+        updateProfileBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+        updateProfileBtn.disabled = true;
+        
+        // Get form values
+        const fullName = document.getElementById('fullName').value.trim();
+        const phoneNumber = document.getElementById('phoneNumber').value.trim();
+        const dateOfBirth = document.getElementById('dateOfBirth').value;
+        
+        // Address information
+        const streetAddress = document.getElementById('streetAddress').value.trim();
+        const city = document.getElementById('city').value.trim();
+        const stateProvince = document.getElementById('stateProvince').value.trim();
+        const postalCode = document.getElementById('postalCode').value.trim();
+        
+        // Agency information
+        const agencyName = document.getElementById('agencyName').value.trim();
+        const businessType = document.getElementById('businessType').value;
+        const businessAddress = document.getElementById('businessAddress').value.trim(); // Business address as seen in MongoDB
+        const businessLicense = document.getElementById('businessLicense').value.trim();
+        const taxId = document.getElementById('taxId').value.trim();
+        
+        // Create agent data object for Firestore
+        const agentData = {
+            name: fullName,
+            phone: phoneNumber,
+            dateOfBirth: dateOfBirth,
+            address: {
+                street: streetAddress,
+                city: city,
+                state: stateProvince,
+                postalCode: postalCode
+            },
+            agencyName: agencyName,
+            businessType: businessType,
+            businessAddress: businessAddress, // This matches the MongoDB field name
+            businessLicense: businessLicense,
+            taxId: taxId,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            status: "active" // Make sure status stays active as in MongoDB
+        };
+        
+        console.log('Updating agent profile with:', agentData);
+        
+        // Update Firestore document
+        const db = firebase.firestore();
+        await db.collection('agents').doc(user.uid).update(agentData);
+        
+        // Also update any fields in the authentication profile if needed
+        // This helps keep displayName synced
+        if (fullName !== user.displayName) {
+            await user.updateProfile({
+                displayName: fullName
+            });
+        }
+        
+        // Update the agent name in dashboard
+        const agentNameElement = document.getElementById('agentName');
+        if (agentNameElement && fullName) {
+            agentNameElement.textContent = fullName;
+        }
+        
+        // Update profile header
+        const profileHeaderName = document.getElementById('profileHeaderName');
+        if (profileHeaderName) {
+            profileHeaderName.textContent = fullName || user.email.substring(0, 1).toUpperCase();
+        }
+        
+        showNotification('Profile updated successfully', 'success');
+        
+    } catch (error) {
+        console.error('Error updating profile:', error);
+        showNotification('Error updating profile: ' + error.message, 'error');
+    } finally {
+        const updateProfileBtn = document.getElementById('updateProfileBtn');
+        updateProfileBtn.innerHTML = 'Save Changes';
+        updateProfileBtn.disabled = false;
+    }
+}
+
+// Update password separately
+async function updatePassword() {
+    try {
+        const user = firebase.auth().currentUser;
+        if (!user) {
+            showNotification('You must be logged in to change your password', 'error');
+            return;
+        }
+        
+        const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+        updatePasswordBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+        updatePasswordBtn.disabled = true;
+        
+        // Get password values
+        const currentPassword = document.getElementById('currentPassword').value;
+        const newPassword = document.getElementById('newPassword').value;
+        const confirmPassword = document.getElementById('confirmPassword').value;
+        
+        // Validation
+        if (!currentPassword) {
+            showNotification('Current password is required', 'error');
+            return;
+        }
+        
+        if (!newPassword || !confirmPassword) {
+            showNotification('New password and confirmation are required', 'error');
+            return;
+        }
+        
+        if (newPassword !== confirmPassword) {
+            showNotification('New passwords do not match', 'error');
+            return;
+        }
+        
+        if (newPassword.length < 8) {
+            showNotification('Password must be at least 8 characters long', 'error');
+            return;
+        }
+        
+        try {
+            // Reauthenticate the user first
+            const credential = firebase.auth.EmailAuthProvider.credential(
+                user.email, 
+                currentPassword
+            );
+            
+            await user.reauthenticateWithCredential(credential);
+            
+            // Now change the password
+            await user.updatePassword(newPassword);
+            
+            // Clear password fields
+            document.getElementById('currentPassword').value = '';
+            document.getElementById('newPassword').value = '';
+            document.getElementById('confirmPassword').value = '';
+            
+            showNotification('Password updated successfully', 'success');
+        } catch (authError) {
+            console.error('Error updating password:', authError);
+            
+            if (authError.code === 'auth/wrong-password') {
+                showNotification('Current password is incorrect', 'error');
+            } else {
+                showNotification('Failed to update password: ' + authError.message, 'error');
+            }
+        }
+        
+    } catch (error) {
+        console.error('Error in password update:', error);
+        showNotification('Error updating password', 'error');
+    } finally {
+        const updatePasswordBtn = document.getElementById('updatePasswordBtn');
+        updatePasswordBtn.innerHTML = 'Change Password';
+        updatePasswordBtn.disabled = false;
+    }
+}
+
+// Validate that passwords match
+function validatePasswordMatch(passwordField, confirmField) {
+    if (passwordField.value !== confirmField.value) {
+        confirmField.setCustomValidity('Passwords do not match');
+    } else {
+        confirmField.setCustomValidity('');
+    }
+}
+
+// ... existing code ...
+
+// Add to document ready event listener
+document.addEventListener('DOMContentLoaded', async function() {
+    // ... existing code ...
+    
+    // Initialize profile functionality
+    handleAgentProfile();
+    
+    // ... existing code ...
+});
+
+// Pricing & Policies Section
+function initializePricingSection() {
+    console.log("Initializing pricing section...");
+    const addOfferBtn = document.querySelector('.add-offer-btn');
+    const editOfferBtns = document.querySelectorAll('.edit-offer-btn');
+    
+    if (addOfferBtn) {
+        addOfferBtn.addEventListener('click', () => {
+            console.log("Add offer button clicked");
+            showAddOfferModal();
+        });
+    }
+    
+    editOfferBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            console.log("Edit offer button clicked");
+            // Get closest parent with class 'offer-card'
+            const offerCard = e.currentTarget.closest('.offer-card');
+            const offerTitle = offerCard.querySelector('.offer-title h4').textContent;
+            const discount = offerCard.querySelector('.discount-amount').textContent;
+            const description = offerCard.querySelector('.offer-content p').textContent;
+            const couponCode = offerCard.querySelector('.coupon-code strong').textContent;
+            
+            showEditOfferModal(offerTitle, discount, description, couponCode, offerCard);
+        });
+    });
+}
+
+function showAddOfferModal() {
+    // Create modal for adding a new offer
+    const modalHTML = `
+    <div class="modal-overlay">
+        <div class="modal-container offer-modal">
+            <div class="modal-header">
+                <h3>Add New Offer</h3>
+                <button class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="addOfferForm">
+                    <div class="form-group">
+                        <label for="offerTitle">Offer Title</label>
+                        <input type="text" id="offerTitle" placeholder="e.g., Weekend Special" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="discountAmount">Discount Amount</label>
+                        <div class="input-with-icon right">
+                            <input type="number" id="discountAmount" placeholder="e.g., 15" min="1" max="100" required>
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="offerDescription">Description</label>
+                        <textarea id="offerDescription" rows="3" placeholder="Describe the offer" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="couponCode">Coupon Code</label>
+                        <input type="text" id="couponCode" placeholder="e.g., SUMMER25" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="cancel-btn">Cancel</button>
+                <button class="submit-btn" id="saveOfferBtn">Save Offer</button>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    // Append modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add event listeners
+    const modal = document.querySelector('.modal-overlay');
+    const closeBtn = modal.querySelector('.modal-close');
+    const cancelBtn = modal.querySelector('.cancel-btn');
+    const saveBtn = modal.querySelector('#saveOfferBtn');
+    
+    function closeModal() {
+        modal.remove();
+    }
+    
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    
+    saveBtn.addEventListener('click', () => {
+        const offerTitle = document.getElementById('offerTitle').value;
+        const discountAmount = document.getElementById('discountAmount').value;
+        const offerDescription = document.getElementById('offerDescription').value;
+        const couponCode = document.getElementById('couponCode').value;
+        
+        if (offerTitle && discountAmount && offerDescription && couponCode) {
+            addNewOfferCard(offerTitle, `${discountAmount}% OFF`, offerDescription, couponCode);
+            closeModal();
+            showNotification('New offer added successfully!', 'success');
+        } else {
+            showNotification('Please fill in all fields', 'error');
+        }
+    });
+}
+
+function showEditOfferModal(title, discount, description, couponCode, offerCard) {
+    // Extract the discount percentage from the text (e.g., "10% OFF" -> "10")
+    const discountValue = discount.replace(/[^0-9]/g, '');
+    
+    // Create modal for editing an offer
+    const modalHTML = `
+    <div class="modal-overlay">
+        <div class="modal-container offer-modal">
+            <div class="modal-header">
+                <h3>Edit Offer</h3>
+                <button class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="editOfferForm">
+                    <div class="form-group">
+                        <label for="offerTitle">Offer Title</label>
+                        <input type="text" id="offerTitle" value="${title}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="discountAmount">Discount Amount</label>
+                        <div class="input-with-icon right">
+                            <input type="number" id="discountAmount" value="${discountValue}" min="1" max="100" required>
+                            <i class="fas fa-percentage"></i>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="offerDescription">Description</label>
+                        <textarea id="offerDescription" rows="3" required>${description}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="couponCode">Coupon Code</label>
+                        <input type="text" id="couponCode" value="${couponCode}" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="delete-btn" id="deleteOfferBtn">Delete</button>
+                <button class="cancel-btn">Cancel</button>
+                <button class="submit-btn" id="updateOfferBtn">Update Offer</button>
+            </div>
+        </div>
+    </div>
+    `;
+    
+    // Append modal to body
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Add event listeners
+    const modal = document.querySelector('.modal-overlay');
+    const closeBtn = modal.querySelector('.modal-close');
+    const cancelBtn = modal.querySelector('.cancel-btn');
+    const updateBtn = modal.querySelector('#updateOfferBtn');
+    const deleteBtn = modal.querySelector('#deleteOfferBtn');
+    
+    function closeModal() {
+        modal.remove();
+    }
+    
+    closeBtn.addEventListener('click', closeModal);
+    cancelBtn.addEventListener('click', closeModal);
+    
+    updateBtn.addEventListener('click', () => {
+        const newTitle = document.getElementById('offerTitle').value;
+        const newDiscountAmount = document.getElementById('discountAmount').value;
+        const newDescription = document.getElementById('offerDescription').value;
+        const newCouponCode = document.getElementById('couponCode').value;
+        
+        if (newTitle && newDiscountAmount && newDescription && newCouponCode) {
+            // Update the offer card
+            offerCard.querySelector('.offer-title h4').textContent = newTitle;
+            offerCard.querySelector('.discount-amount').textContent = `${newDiscountAmount}% OFF`;
+            offerCard.querySelector('.offer-content p').textContent = newDescription;
+            offerCard.querySelector('.coupon-code strong').textContent = newCouponCode;
+            
+            closeModal();
+            showNotification('Offer updated successfully!', 'success');
+        } else {
+            showNotification('Please fill in all fields', 'error');
+        }
+    });
+    
+    deleteBtn.addEventListener('click', () => {
+        offerCard.remove();
+        closeModal();
+        showNotification('Offer deleted successfully!', 'success');
+    });
+}
+
+function addNewOfferCard(title, discount, description, couponCode) {
+    const offersGrid = document.querySelector('.offers-grid');
+    
+    const newOfferHTML = `
+    <div class="offer-card">
+        <div class="offer-header">
+            <div class="offer-icon">
+                <i class="fas fa-gift"></i>
+            </div>
+            <div class="offer-title">
+                <h4>${title}</h4>
+                <p class="discount-amount">${discount}</p>
+            </div>
+        </div>
+        <div class="offer-content">
+            <p>${description}</p>
+            <div class="coupon-code">
+                <span>Coupon Code:</span>
+                <strong>${couponCode}</strong>
+            </div>
+        </div>
+        <div class="offer-actions">
+            <button class="edit-offer-btn">
+                <i class="fas fa-edit"></i> Edit
+            </button>
+        </div>
+    </div>
+    `;
+    
+    offersGrid.insertAdjacentHTML('beforeend', newOfferHTML);
+    
+    // Add event listener to the new edit button
+    const newCard = offersGrid.lastElementChild;
+    const newEditBtn = newCard.querySelector('.edit-offer-btn');
+    
+    newEditBtn.addEventListener('click', (e) => {
+        const offerCard = e.currentTarget.closest('.offer-card');
+        const offerTitle = offerCard.querySelector('.offer-title h4').textContent;
+        const discount = offerCard.querySelector('.discount-amount').textContent;
+        const description = offerCard.querySelector('.offer-content p').textContent;
+        const couponCode = offerCard.querySelector('.coupon-code strong').textContent;
+        
+        showEditOfferModal(offerTitle, discount, description, couponCode, offerCard);
+    });
+}
+
+// Initialize sections when document is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing initialization code ...
+    
+    // Initialize pricing section
+    initializePricingSection();
+});
+
+// ... existing code ...
+
+// Helper function to get current user
+function getCurrentUser() {
+    return firebase.auth().currentUser;
+}
+
+// Reviews & Feedback Section
+let agentReviews = [];
+let currentPage = 1;
+let filteredReviews = [];
+let reviewsPerPage = 3;
+
+// Near the top of the file after other imports or variable declarations
+let ipcRenderer;
+try {
+    // Check if running in Electron environment
+    if (window.require) {
+        const electron = window.require('electron');
+        ipcRenderer = electron.ipcRenderer;
+        console.log('Successfully imported ipcRenderer from Electron');
+    } else {
+        console.log('Not running in Electron environment, ipcRenderer will not be available');
+    }
+} catch (error) {
+    console.warn('Error importing ipcRenderer:', error);
+}
+
+// Also add a fallback function for API calls in the loadAgentReviews function
+async function loadAgentReviews() {
+    console.log('--- LOADING AGENT REVIEWS ---');
+    
+    // Define global review arrays if not already defined
+    if (typeof agentReviews === 'undefined') {
+        console.log('Initializing agentReviews array');
+        window.agentReviews = [];
+    }
+    
+    if (typeof filteredReviews === 'undefined') {
+        console.log('Initializing filteredReviews array');
+        window.filteredReviews = [];
+    }
+    
+    // Show loading state
+    const reviewsContainer = document.querySelector('.reviews-grid');
+    if (reviewsContainer) {
+        reviewsContainer.innerHTML = '<div class="loading-indicator">Loading reviews...</div>';
+    }
+    
+    // Reset UI components
+    document.getElementById('averageRatingValue').textContent = '0.0';
+    document.getElementById('totalReviewsCount').textContent = '0';
+    
+    // Clear rating bars
+    document.querySelectorAll('.rating-bar-fill').forEach(bar => {
+        bar.style.width = '0%';
+    });
+    
+    try {
+        // Get current agent ID
+        const agentId = localStorage.getItem('agentId');
+        if (!agentId) {
+            console.error('Agent ID not found in localStorage');
+            reviewsContainer.innerHTML = '<div class="empty-state">Unable to load reviews. Agent ID not found.</div>';
+            return;
+        }
+        
+        console.log('Fetching reviews for agent:', agentId);
+        
+        // Get electron IPC if available
+        let ipcRenderer;
+        try {
+            const electron = require('electron');
+            ipcRenderer = electron.ipcRenderer;
+        } catch (error) {
+            console.warn('Error importing electron:', error);
+        }
+        
+        // Add a timestamp parameter to avoid browser caching
+        const timestamp = new Date().getTime();
+        
+        // Try to get reviews via API
+        let reviews = [];
+        let response = { ok: false, data: [] };
+        
+        if (ipcRenderer) {
+            try {
+                console.log(`Sending API request for reviews: /api/reviews/agent/${agentId}?nocache=${timestamp}`);
+                response = await ipcRenderer.invoke('api-call', {
+                    method: 'GET',
+                    url: `/api/reviews/agent/${agentId}?nocache=${timestamp}`,
+                    headers: {
+                        'Accept': 'application/json',
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                console.log('Raw reviews response:', JSON.stringify(response));
+                
+                // Check response format and extract reviews
+                if (response.ok && response.data) {
+                    // Attempt to extract reviews from different response structures
+                    if (response.data.data && Array.isArray(response.data.data)) {
+                        reviews = response.data.data;
+                        console.log(`Found ${reviews.length} reviews in response.data.data`);
+                    } else if (Array.isArray(response.data)) {
+                        reviews = response.data;
+                        console.log(`Found ${reviews.length} reviews in response.data (array)`);
+                    } else {
+                        console.warn('Unexpected response structure:', response.data);
+                        // Try to extract data if it's in a nested property
+                        if (response.data && typeof response.data === 'object') {
+                            for (const key in response.data) {
+                                if (Array.isArray(response.data[key])) {
+                                    reviews = response.data[key];
+                                    console.log(`Found ${reviews.length} reviews in response.data.${key}`);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    console.warn('API request unsuccessful or returned no data:', response);
+                }
+                
+                // Special handling for our test data
+                const testReviewBookingId = "67f91ebc2f6d53d201874aaa";
+                if (reviews.length === 0) {
+                    console.log('No reviews found, trying direct test query');
+                    // Manually try a direct fetch with the known booking ID
+                    const directResponse = await ipcRenderer.invoke('api-call', {
+                        method: 'GET',
+                        url: `/api/reviews?bookingId=${testReviewBookingId}`
+                    });
+                    
+                    console.log('Direct query response:', JSON.stringify(directResponse));
+                    
+                    if (directResponse.ok && directResponse.data) {
+                        if (directResponse.data.data && Array.isArray(directResponse.data.data)) {
+                            reviews = directResponse.data.data;
+                        } else if (Array.isArray(directResponse.data)) {
+                            reviews = directResponse.data;
+                        }
+                        console.log(`Found ${reviews.length} reviews with direct booking ID query`);
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching reviews through API:', error);
+                alert(`Error loading reviews: ${error.message}`);
+            }
+        } else {
+            console.warn('IPC renderer not available, cannot load reviews');
+            reviewsContainer.innerHTML = '<div class="empty-state">Cannot communicate with the server. Please restart the application.</div>';
+            return;
+        }
+        
+        console.log('Final reviews array:', reviews);
+        
+        // Display reviews
+        if (!reviews || reviews.length === 0) {
+            console.log('No reviews found for this agent');
+            reviewsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-star empty-icon"></i>
+                    <p>No reviews found. Start providing excellent service to get reviews!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Store for use in filters and pagination
+        window.agentReviews = reviews;
+        window.filteredReviews = [...reviews];
+        
+        console.log('Reviews stored in global variables:', { 
+            agentReviews: window.agentReviews.length, 
+            filteredReviews: window.filteredReviews.length 
+        });
+        
+        // Calculate and display stats
+        calculateRatingStatistics();
+        
+        // Display paginated reviews
+        displayReviews();
+        updatePagination();
+        
+    } catch (error) {
+        console.error('Error loading reviews:', error);
+        
+        if (reviewsContainer) {
+            reviewsContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle empty-icon"></i>
+                    <p>Unable to load reviews. Please try again later.</p>
+                    <p class="error-details">${error.message}</p>
+                </div>
+            `;
+        }
+    }
+}
+
+function showReviewsEmptyState() {
+    const loadingElement = document.querySelector('.reviews-loading');
+    const emptyElement = document.querySelector('.reviews-empty');
+    
+    if (loadingElement) {
+        loadingElement.classList.add('hidden');
+    }
+    
+    if (emptyElement) {
+        emptyElement.classList.remove('hidden');
+    }
+    
+    // Reset counters
+    const avgRatingElement = document.getElementById('averageRatingValue');
+    if (avgRatingElement) {
+        avgRatingElement.textContent = '0.0';
+    }
+    
+    const totalReviewsElement = document.getElementById('totalReviewsCount');
+    if (totalReviewsElement) {
+        totalReviewsElement.textContent = '0';
+    }
+    
+    // Reset star counts
+    ['five', 'four', 'three', 'two', 'one'].forEach(star => {
+        const starCountElement = document.getElementById(`${star}StarCount`);
+        if (starCountElement) {
+            starCountElement.textContent = '0';
+        }
+    });
+    
+    // Reset rating bars
+    const ratingBars = document.querySelectorAll('.rating-bar-fill');
+    if (ratingBars) {
+        ratingBars.forEach(bar => {
+            if (bar) bar.style.width = '0%';
+        });
+    }
+    
+    // Reset pagination
+    updatePagination();
+}
+
+function calculateRatingStatistics() {
+    console.log('Calculating rating statistics');
+    
+    // Get reviews from window globals
+    const reviews = window.agentReviews || [];
+    console.log(`Calculating stats for ${reviews.length} reviews`);
+    
+    // Count ratings by star
+    let starCounts = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0};
+    let totalRating = 0;
+    
+    reviews.forEach(review => {
+        // Parse rating to make sure it's a number
+        const rating = parseInt(review.rating, 10) || 0;
+        
+        if (rating >= 1 && rating <= 5) {
+            starCounts[rating]++;
+            totalRating += rating;
+        }
+    });
+    
+    // Calculate average
+    const averageRating = reviews.length > 0 ? (totalRating / reviews.length).toFixed(1) : '0.0';
+    
+    console.log('Rating stats:', { 
+        starCounts, 
+        total: reviews.length, 
+        average: averageRating 
+    });
+    
+    // Update UI
+    document.getElementById('averageRatingValue').textContent = averageRating;
+    document.getElementById('totalReviewsCount').textContent = reviews.length;
+    
+    // Update star counts
+    document.getElementById('fiveStarCount').textContent = starCounts[5];
+    document.getElementById('fourStarCount').textContent = starCounts[4];
+    document.getElementById('threeStarCount').textContent = starCounts[3];
+    document.getElementById('twoStarCount').textContent = starCounts[2];
+    document.getElementById('oneStarCount').textContent = starCounts[1];
+    
+    // Update rating bars
+    const totalReviews = reviews.length;
+    if (totalReviews > 0) {
+        document.querySelectorAll('.rating-bar-fill')[0].style.width = `${(starCounts[5] / totalReviews) * 100}%`;
+        document.querySelectorAll('.rating-bar-fill')[1].style.width = `${(starCounts[4] / totalReviews) * 100}%`;
+        document.querySelectorAll('.rating-bar-fill')[2].style.width = `${(starCounts[3] / totalReviews) * 100}%`;
+        document.querySelectorAll('.rating-bar-fill')[3].style.width = `${(starCounts[2] / totalReviews) * 100}%`;
+        document.querySelectorAll('.rating-bar-fill')[4].style.width = `${(starCounts[1] / totalReviews) * 100}%`;
+    }
+    
+    // Update rating stars
+    updateRatingStars(averageRating);
+}
+
+function updateRatingStars(rating) {
+    const starsContainer = document.querySelector('.rating-stars');
+    if (!starsContainer) {
+        console.warn('Rating stars container not found');
+        return;
+    }
+    
+    starsContainer.innerHTML = '';
+    
+    const ratingValue = parseFloat(rating);
+    const fullStars = Math.floor(ratingValue);
+    const hasHalfStar = ratingValue - fullStars >= 0.5;
+    
+    // Add full stars
+    for (let i = 0; i < fullStars; i++) {
+        starsContainer.innerHTML += '<i class="fas fa-star"></i>';
+    }
+    
+    // Add half star if needed
+    if (hasHalfStar) {
+        starsContainer.innerHTML += '<i class="fas fa-star-half-alt"></i>';
+    }
+    
+    // Add empty stars
+    const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+    for (let i = 0; i < emptyStars; i++) {
+        starsContainer.innerHTML += '<i class="far fa-star"></i>';
+    }
+}
+
+function filterReviews(filterType) {
+    // Clone reviews for filtering
+    filteredReviews = [...agentReviews];
+    
+    // Apply filter
+    switch(filterType) {
+        case 'recent':
+            filteredReviews.sort((a, b) => {
+                const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+                const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+                return dateB - dateA;
+            });
+            break;
+        case 'highest':
+            filteredReviews.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+            break;
+        case 'lowest':
+            filteredReviews.sort((a, b) => (a.rating || 0) - (b.rating || 0));
+            break;
+        case 'all':
+        default:
+            // Default is to sort by most recent
+            filteredReviews.sort((a, b) => {
+                const dateA = a.createdAt instanceof Date ? a.createdAt : new Date(a.createdAt);
+                const dateB = b.createdAt instanceof Date ? b.createdAt : new Date(b.createdAt);
+                return dateB - dateA;
+            });
+            break;
+    }
+    
+    // Reset to first page and display reviews
+    currentPage = 1;
+    displayReviews();
+    updatePagination();
+}
+
+function displayReviews() {
+    console.log("displayReviews called - current reviews:", window.filteredReviews);
+    
+    // Get the correct container for reviews
+    const reviewsGrid = document.querySelector('.reviews-grid');
+    const reviewsList = document.getElementById('agentReviewsList');
+    
+    console.log("Reviews containers:", { 
+        reviewsGrid: reviewsGrid, 
+        reviewsList: reviewsList 
+    });
+    
+    // Clear both containers to be safe
+    if (reviewsGrid) {
+        console.log("Clearing reviewsGrid container");
+        reviewsGrid.innerHTML = '';
+    }
+    
+    // Check if reviews list exists
+    if (!reviewsList) {
+        console.error('Reviews list element not found - recreating it');
+        
+        // If reviews list is missing, create it inside the reviews grid
+        if (reviewsGrid) {
+            const newReviewsList = document.createElement('div');
+            newReviewsList.id = 'agentReviewsList';
+            newReviewsList.className = 'reviews-list';
+            reviewsGrid.appendChild(newReviewsList);
+            
+            // Update reference
+            const updatedReviewsList = document.getElementById('agentReviewsList');
+            
+            if (updatedReviewsList) {
+                console.log("Created new reviews list container");
+                displayReviewItems(updatedReviewsList, window.filteredReviews);
+            } else {
+                console.error("Failed to create reviews list container");
+                // Display directly in the grid as fallback
+                displayReviewItems(reviewsGrid, window.filteredReviews);
+            }
+        } else {
+            console.error("Neither reviews grid nor list found - cannot display reviews");
+        }
+        return;
+    }
+    
+    // Normal flow - display in existing list
+    reviewsList.innerHTML = '';
+    displayReviewItems(reviewsList, window.filteredReviews);
+}
+
+// Helper function to display review items in a container
+function displayReviewItems(container, reviews) {
+    // Hide loading
+    const loadingElement = document.querySelector('.reviews-loading');
+    if (loadingElement) {
+        loadingElement.classList.add('hidden');
+    }
+    
+    // Calculate page start and end
+    const startIndex = (currentPage - 1) * reviewsPerPage;
+    const endIndex = Math.min(startIndex + reviewsPerPage, reviews.length);
+    
+    // Get current page reviews
+    const currentReviews = reviews.slice(startIndex, endIndex);
+    
+    console.log(`Displaying ${currentReviews.length} reviews for page ${currentPage}`);
+    
+    // If no reviews after filtering, show empty state
+    if (currentReviews.length === 0) {
+        const emptyElement = document.createElement('div');
+        emptyElement.className = 'reviews-no-results';
+        emptyElement.innerHTML = `
+            <i class="far fa-frown"></i>
+            <p>No reviews match the selected filter.</p>
+        `;
+        container.appendChild(emptyElement);
+        return;
+    }
+    
+    // Create review items
+    currentReviews.forEach(review => {
+        const reviewElement = createReviewElement(review);
+        container.appendChild(reviewElement);
+    });
+}
+
+function createReviewElement(review) {
+    console.log('Creating review element from:', review);
+    
+    // Create container
+    const reviewElement = document.createElement('div');
+    reviewElement.className = 'review-item';
+    
+    // Format date - look for createdAt or updatedAt fields
+    let reviewDate;
+    try {
+        if (review.createdAt) {
+            reviewDate = new Date(review.createdAt);
+        } else if (review.updatedAt) {
+            reviewDate = new Date(review.updatedAt);
+        } else {
+            reviewDate = new Date();
+        }
+    } catch (error) {
+        console.warn('Error parsing date:', error);
+        reviewDate = new Date();
+    }
+    
+    const formattedDate = reviewDate.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'short', 
+        day: 'numeric' 
+    });
+    
+    // Get user initials for avatar
+    let customerName = 'Unknown';
+    
+    // Try to get user name
+    if (review.userName) {
+        customerName = review.userName;
+    } else if (review.userId && typeof review.userId === 'object' && review.userId.name) {
+        customerName = review.userId.name; // If userId is populated with user object
+    } else if (review.userId) {
+        // Just use the first part of the userId 
+        if (typeof review.userId === 'string') {
+            customerName = review.userId.split('@')[0];
+        } else {
+            customerName = 'User';
+        }
+    }
+    
+    const initials = customerName
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .substring(0, 2);
+    
+    // Create star display
+    let starsHtml = '';
+    const rating = parseInt(review.rating, 10) || 0;
+    for (let i = 1; i <= 5; i++) {
+        if (i <= rating) {
+            starsHtml += '<i class="fas fa-star"></i>';
+        } else {
+            starsHtml += '<i class="far fa-star"></i>';
+        }
+    }
+    
+    // Get comment text - in the data it's in 'comments' field
+    const commentText = review.comments || review.comment || 'No comment provided.';
+    
+    // Get vehicle name - try direct field access or object
+    let vehicleName = 'Unknown Vehicle';
+    if (review.vehicleName) {
+        vehicleName = review.vehicleName;
+    } else if (review.vehicleId && typeof review.vehicleId === 'object') {
+        // If vehicleId is populated
+        if (review.vehicleId.make && review.vehicleId.model) {
+            vehicleName = `${review.vehicleId.make} ${review.vehicleId.model}`;
+        } else if (review.vehicleId.name) {
+            vehicleName = review.vehicleId.name;
+        }
+    } else if (review.vehicleId) {
+        // If we have a vehicleId, try to create a descriptive name
+        vehicleName = `Vehicle ${typeof review.vehicleId === 'string' ? 
+            review.vehicleId.substring(0, 6) : 'ID'}`;
+    }
+    
+    // Populate review data
+    reviewElement.innerHTML = `
+        <div class="review-header">
+            <div class="reviewer-info">
+                <div class="reviewer-avatar">${initials}</div>
+                <div class="reviewer-details">
+                    <div class="reviewer-name">${customerName}</div>
+                    <div class="vehicle-rented">${vehicleName}</div>
+                </div>
+            </div>
+            <div class="review-date">${formattedDate}</div>
+        </div>
+        <div class="review-rating">
+            ${starsHtml}
+        </div>
+        <div class="review-text">
+            ${commentText}
+        </div>
+    `;
+    
+    return reviewElement;
+}
+
+function updatePagination() {
+    const totalPages = Math.ceil(window.filteredReviews.length / window.reviewsPerPage);
+    
+    const currentPageEl = document.getElementById('currentReviewsPage');
+    const totalPagesEl = document.getElementById('totalReviewsPages');
+    const prevButton = document.getElementById('prevReviewsPage');
+    const nextButton = document.getElementById('nextReviewsPage');
+    
+    if (currentPageEl) {
+        currentPageEl.textContent = window.currentPage;
+    }
+    
+    if (totalPagesEl) {
+        totalPagesEl.textContent = totalPages || 1;
+    }
+    
+    // Update button states
+    if (prevButton) {
+        prevButton.disabled = window.currentPage <= 1;
+    }
+    
+    if (nextButton) {
+        nextButton.disabled = window.currentPage >= totalPages;
+    }
+}
+
+function initializeReviewsSection() {
+    console.log('Initializing reviews section');
+    
+    // Wait for auth state before loading reviews and interacting with DOM
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            // Query for DOM elements *after* confirming user auth
+            const reviewsSection = document.querySelector('.reviews-section');
+            if (!reviewsSection) {
+                console.error('Reviews section not found in DOM');
+                return; // Exit if the section isn't found
+            }
+
+            // Check for required containers and create them if needed (now safely inside)
+            let reviewsGrid = reviewsSection.querySelector('.reviews-grid');
+            if (!reviewsGrid) {
+                console.log('Creating missing reviews-grid container');
+                reviewsGrid = document.createElement('div');
+                reviewsGrid.className = 'reviews-grid';
+                reviewsSection.appendChild(reviewsGrid);
+            }
+            
+            let reviewsList = reviewsSection.querySelector('#agentReviewsList'); // Use querySelector for consistency
+            if (!reviewsList) {
+                console.log('Creating missing agentReviewsList container');
+                reviewsList = document.createElement('div');
+                reviewsList.id = 'agentReviewsList';
+                reviewsList.className = 'reviews-list';
+                reviewsGrid.appendChild(reviewsList);
+            }
+
+            // Store agent ID in localStorage
+            localStorage.setItem('agentId', user.uid);
+            console.log('Agent ID saved to localStorage for reviews:', user.uid);
+
+            // Ensure window global variables are initialized
+            window.agentReviews = window.agentReviews || [];
+            window.filteredReviews = window.filteredReviews || [];
+            window.currentPage = window.currentPage || 1;
+            window.reviewsPerPage = window.reviewsPerPage || 3;
+
+            // Load reviews data only when user is authenticated
+            loadAgentReviews();
+            
+            // Set up filter change handler
+            const filterElement = document.getElementById('reviewsFilter');
+            if (filterElement) {
+                filterElement.addEventListener('change', (e) => {
+                    filterReviews(e.target.value);
+                });
+            }
+            
+            // Set up pagination handlers
+            const prevButton = document.getElementById('prevReviewsPage');
+            const nextButton = document.getElementById('nextReviewsPage');
+            
+            if (prevButton) {
+                prevButton.addEventListener('click', () => {
+                    if (window.currentPage > 1) {
+                        window.currentPage--;
+                        displayReviews();
+                        updatePagination();
+                    }
+                });
+            }
+            
+            if (nextButton) {
+                nextButton.addEventListener('click', () => {
+                    const totalPages = Math.ceil(window.filteredReviews.length / window.reviewsPerPage);
+                    if (window.currentPage < totalPages) {
+                        window.currentPage++;
+                        displayReviews();
+                        updatePagination();
+                    }
+                });
+            }
+        } else {
+            console.log('User not authenticated, reviews section will not load');
+            // Attempt to find the section to show empty state, but handle if it doesn't exist yet
+            const reviewsSection = document.querySelector('.reviews-section');
+            if (reviewsSection) {
+                 showReviewsEmptyState(); // Only call if section exists
+            } else {
+                console.warn('Reviews section not found for showing empty state.');
+            }
+        }
+    });
+}
+
+// Initialize sections when document is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // ... existing initialization code ...
+    
+    // Initialize reviews section slightly later to ensure DOM is ready
+    setTimeout(initializeReviewsSection, 0);
+    
+    // REMOVED duplicate DOMContentLoaded listener that was here
+});
+
+// ... rest of the file ...
+
+// Add this to the beginning of the document ready handler or another initialization area
+document.addEventListener('DOMContentLoaded', function() {
+    // Store agent ID in localStorage when auth state changes
+    firebase.auth().onAuthStateChanged(user => {
+        if (user) {
+            localStorage.setItem('agentId', user.uid);
+            console.log('Agent ID saved to localStorage:', user.uid);
+        } else {
+            console.log('User not authenticated');
+        }
+    });
+    
+    // ... existing initialization code ...
+    
+});
+
+function initializeFilters() {
+    console.log("Initializing review filters");
+    
+    const filterOptions = document.querySelectorAll('.review-filter-option');
+    
+    filterOptions.forEach(option => {
+        option.addEventListener('click', function() {
+            // Remove active class from all options
+            filterOptions.forEach(opt => opt.classList.remove('active'));
+            
+            // Add active class to clicked option
+            this.classList.add('active');
+            
+            // Get filter value
+            const filterValue = this.getAttribute('data-filter');
+            window.currentFilter = filterValue;
+            
+            console.log("Filter changed to:", filterValue);
+            
+            // Apply filter
+            filterReviews();
+            window.currentPage = 1; // Reset to first page on filter change
+            displayReviews();
+            updatePagination();
+        });
+    });
+}
+
+function filterReviews() {
+    console.log("Filtering reviews, current filter:", window.currentFilter);
+    console.log("Total reviews before filtering:", window.agentReviews ? window.agentReviews.length : 0);
+    
+    if (!window.agentReviews || window.agentReviews.length === 0) {
+        window.filteredReviews = [];
+        return;
+    }
+    
+    // Apply filters
+    if (window.currentFilter === 'all') {
+        window.filteredReviews = [...window.agentReviews];
+    } else if (window.currentFilter === 'positive') {
+        window.filteredReviews = window.agentReviews.filter(review => review.rating >= 4);
+    } else if (window.currentFilter === 'neutral') {
+        window.filteredReviews = window.agentReviews.filter(review => review.rating === 3);
+    } else if (window.currentFilter === 'negative') {
+        window.filteredReviews = window.agentReviews.filter(review => review.rating <= 2);
+    } else {
+        window.filteredReviews = [...window.agentReviews];
+    }
+    
+    console.log("Filtered reviews:", window.filteredReviews.length);
 }

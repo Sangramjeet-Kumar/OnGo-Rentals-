@@ -2213,4 +2213,48 @@ body {
     .reviewable-vehicles-container {
         grid-template-columns: 1fr;
     }
+}
+
+/* Discount Info Styles */
+.discount-info {
+    margin: 10px 0;
+    padding: 8px 12px;
+    background-color: rgba(16, 185, 129, 0.1);
+    border-left: 4px solid #10b981;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.discount-label {
+    font-weight: 600;
+    color: #10b981;
+}
+
+.discount-value {
+    font-weight: 700;
+    color: #10b981;
+}
+
+.discount-code {
+    background-color: rgba(16, 185, 129, 0.2);
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    color: #10b981;
+    margin-left: 8px;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 } 

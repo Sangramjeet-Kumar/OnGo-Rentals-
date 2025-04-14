@@ -1296,9 +1296,19 @@ function loadRecentActivities(bookings) {
 
 // Handle profile update
 function handleProfileUpdate() {
+    console.log('Initializing profile update handler');
     const updateProfileBtn = document.getElementById('updateProfileBtn');
     
-    updateProfileBtn.addEventListener('click', () => {
+    if (!updateProfileBtn) {
+        console.error("Update Profile button not found in the DOM");
+        return;
+    }
+    
+    console.log('Update Profile button found, attaching event listener');
+    
+    // Use a named function to make it easier to debug
+    function updateProfileHandler() {
+        console.log('Update Profile button clicked');
         const currentUser = getCurrentUser();
         
         if (!currentUser) {
@@ -1334,6 +1344,9 @@ function handleProfileUpdate() {
         updateProfileBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
         updateProfileBtn.disabled = true;
         
+        // Get a reference to Firestore
+        const db = firebase.firestore();
+        
         // Update user data in Firestore
         db.collection('users').doc(currentUser.uid).update({
             name: fullName,
@@ -1354,13 +1367,12 @@ function handleProfileUpdate() {
             // Update displayed name
             const userNameElements = document.querySelectorAll('#userName, #profileName');
             userNameElements.forEach(element => {
-                element.textContent = fullName;
+                if (element) element.textContent = fullName;
             });
             
             // Update profile email if it exists
             const profileEmailElement = document.getElementById('profileEmail');
             if (profileEmailElement) {
-                const currentUser = getCurrentUser();
                 if (currentUser && currentUser.email) {
                     profileEmailElement.textContent = currentUser.email;
                 }
@@ -1375,7 +1387,13 @@ function handleProfileUpdate() {
             updateProfileBtn.innerHTML = 'Update Profile';
             updateProfileBtn.disabled = false;
         });
-    });
+    }
+    
+    // Remove any existing listeners
+    updateProfileBtn.removeEventListener('click', updateProfileHandler);
+    
+    // Add the event listener
+    updateProfileBtn.addEventListener('click', updateProfileHandler);
 }
 
 // Handle logout
@@ -3927,8 +3945,53 @@ function calculateBookingTotal(vehicle) {
     // Get daily rate
     const dailyRate = vehicle.pricing?.dailyRate || 0;
     
-    // Calculate total
-    const total = days * dailyRate;
+    // Calculate base total
+    let total = days * dailyRate;
+    
+    // Initialize discount variables
+    let discountPercentage = 0;
+    let discountCode = '';
+    
+    // Apply discounts based on duration
+    if (days > 30) {
+        // Apply 20% discount for bookings longer than a month
+        discountPercentage = 20;
+        discountCode = 'MONTH20';
+    } else if (days > 7) {
+        // Apply 10% discount for bookings longer than a week
+        discountPercentage = 10;
+        discountCode = 'WEEK10';
+    }
+    
+    // Calculate discounted price if applicable
+    if (discountPercentage > 0) {
+        const discountAmount = (total * discountPercentage) / 100;
+        total = total - discountAmount;
+        
+        // Show discount notification
+        showNotification(`${discountPercentage}% discount applied! Coupon: ${discountCode}`, 'success');
+        
+        // Create or update discount display elements
+        let discountInfoEl = document.getElementById('discountInfo');
+        if (!discountInfoEl) {
+            discountInfoEl = document.createElement('div');
+            discountInfoEl.id = 'discountInfo';
+            discountInfoEl.className = 'discount-info';
+            totalAmountField.parentNode.insertBefore(discountInfoEl, totalAmountField);
+        }
+        
+        discountInfoEl.innerHTML = `
+            <span class="discount-label">Discount (${discountPercentage}%): </span>
+            <span class="discount-value">-₹${discountAmount.toLocaleString()}</span>
+            <span class="discount-code">(Code: ${discountCode})</span>
+        `;
+    } else {
+        // Remove discount info if no discount applies
+        const discountInfoEl = document.getElementById('discountInfo');
+        if (discountInfoEl) {
+            discountInfoEl.remove();
+        }
+    }
     
     // Update UI
     totalAmountField.textContent = `₹${total.toLocaleString()}`;
@@ -3938,7 +4001,7 @@ function calculateBookingTotal(vehicle) {
         daysCountField.textContent = days;
     }
     
-    return { days, total };
+    return { days, total, discountPercentage, discountCode };
 }
 
 // Initialize the dashboard
@@ -4255,6 +4318,7 @@ function setupEventListeners() {
                 handlePasswordToggles();
                 handlePasswordStrength();
                 handlePasswordChange();
+                handleProfileUpdate(); // Ensure profile update handler is initialized
             }
         });
     });
@@ -4267,6 +4331,11 @@ function setupEventListeners() {
         handlePasswordChange();
     }
     
+    // Initialize profile update button if it exists
+    if (document.getElementById('updateProfileBtn')) {
+        handleProfileUpdate();
+    }
+    
     // Handle logout
     const logoutBtn = document.getElementById('logoutBtn');
     if (logoutBtn) {
@@ -4274,11 +4343,11 @@ function setupEventListeners() {
             firebase.auth().signOut()
                 .then(() => {
                     console.log('User signed out');
-            window.location.href = 'index.html';
+                    window.location.href = 'index.html';
                 })
                 .catch(error => {
                     console.error('Sign out error:', error);
-    });
+                });
         });
     }
     
@@ -4338,12 +4407,34 @@ async function handleBookingSubmit(e) {
         
         const vehicle = vehicleResponse.data;
         
-        // Calculate dates and total
+        // Calculate dates, total, and apply discount
         const start = new Date(pickupDate);
         const end = new Date(returnDate);
         const days = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
         const dailyRate = vehicle.pricing?.dailyRate || 0;
-        const total = days * dailyRate;
+        
+        // Calculate base total
+        let baseTotal = days * dailyRate;
+        
+        // Determine if discount applies
+        let discountPercentage = 0;
+        let discountCode = '';
+        let discountAmount = 0;
+        let finalTotal = baseTotal;
+        
+        if (days > 30) {
+            // Apply 20% discount for bookings longer than a month
+            discountPercentage = 20;
+            discountCode = 'MONTH20';
+            discountAmount = (baseTotal * discountPercentage) / 100;
+            finalTotal = baseTotal - discountAmount;
+        } else if (days > 7) {
+            // Apply 10% discount for bookings longer than a week
+            discountPercentage = 10;
+            discountCode = 'WEEK10';
+            discountAmount = (baseTotal * discountPercentage) / 100;
+            finalTotal = baseTotal - discountAmount;
+        }
         
         // Generate a unique ID for the Firebase booking
         const firebaseBookingId = `booking_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
@@ -4362,7 +4453,13 @@ async function handleBookingSubmit(e) {
             returnLocation: location,
             days: days,
             dailyRate: dailyRate,
-            totalAmount: total,
+            baseAmount: baseTotal,
+            discount: {
+                percentage: discountPercentage,
+                code: discountCode,
+                amount: discountAmount
+            },
+            totalAmount: finalTotal,
             status: 'confirmed',
             paymentStatus: 'completed',
             firebaseId: firebaseBookingId,
@@ -4384,7 +4481,13 @@ async function handleBookingSubmit(e) {
                 pickupDate: firebase.firestore.Timestamp.fromDate(start),
                 returnDate: firebase.firestore.Timestamp.fromDate(end),
                 status: 'confirmed',
-                amount: total
+                baseAmount: baseTotal,
+                discount: {
+                    percentage: discountPercentage,
+                    code: discountCode,
+                    amount: discountAmount
+                },
+                amount: finalTotal
             }),
             'activeRentals': firebase.firestore.FieldValue.increment(1),
             'totalTrips': firebase.firestore.FieldValue.increment(1),
