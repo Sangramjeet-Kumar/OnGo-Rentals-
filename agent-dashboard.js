@@ -545,7 +545,8 @@ function handleNavigation() {
                     // Get the current user
                     const user = firebase.auth().currentUser;
                     if (user) {
-                        loadCurrentRentals(user.uid);
+                        // Delay loading rentals to ensure DOM is ready
+                        setTimeout(() => loadCurrentRentals(user.uid), 100);
                     } else {
                         console.error('No user found when trying to load current rentals');
                     }
@@ -558,6 +559,10 @@ function handleNavigation() {
                     } else {
                         console.error('No user found when trying to load past rentals');
                     }
+                } else if (sectionId === 'reviews' || sectionId === 'feedback') {
+                    console.log('Navigating to reviews/feedback section, initializing');
+                    // Initialize reviews section when navigated to
+                    setTimeout(() => initializeReviewsSection(), 100);
                 }
                 
                 // Animate section entry
@@ -1396,12 +1401,21 @@ async function loadCurrentRentals(agentId) {
     try {
         console.log('Loading current rentals for agent ID:', agentId);
         
-        // Get container elements
-        const rentalsContainer = document.querySelector('.rentals-container');
+        // Get container elements or create them if they don't exist
+        let rentalsContainer = document.querySelector('.rentals-container');
+        const currentRentalsSection = document.getElementById('current-rentals');
+        
+        // If current-rentals section exists but rentals-container doesn't, create it
+        if (currentRentalsSection && !rentalsContainer) {
+            console.log('Creating missing rentals-container');
+            rentalsContainer = document.createElement('div');
+            rentalsContainer.className = 'rentals-container';
+            currentRentalsSection.appendChild(rentalsContainer);
+        }
         
         // Check if rentals container exists
         if (!rentalsContainer) {
-            console.warn('Rentals container not found in DOM. Current rentals cannot be displayed.');
+            console.warn('Rentals container not found in DOM and could not be created. Current rentals cannot be displayed.');
             return;
         }
         
@@ -1421,8 +1435,25 @@ async function loadCurrentRentals(agentId) {
             }
         }
         
-        const loadingElement = rentalsContainer.querySelector('.rentals-loading');
-        const emptyElement = rentalsContainer.querySelector('.rentals-empty');
+        // Create loading element if it doesn't exist
+        let loadingElement = rentalsContainer.querySelector('.rentals-loading');
+        if (!loadingElement) {
+            console.log('Creating missing rentals-loading element');
+            loadingElement = document.createElement('div');
+            loadingElement.className = 'rentals-loading';
+            loadingElement.innerHTML = '<div class="loading-spinner"></div><p>Loading current rentals...</p>';
+            rentalsContainer.appendChild(loadingElement);
+        }
+        
+        // Create empty state element if it doesn't exist
+        let emptyElement = rentalsContainer.querySelector('.rentals-empty');
+        if (!emptyElement) {
+            console.log('Creating missing rentals-empty element');
+            emptyElement = document.createElement('div');
+            emptyElement.className = 'rentals-empty hidden';
+            emptyElement.innerHTML = '<div class="empty-state"><i class="fas fa-car empty-icon"></i><p>No current rentals found</p></div>';
+            rentalsContainer.appendChild(emptyElement);
+        }
         
         // Clear previous rentals - add null check
         if (rentalsListElement) {
@@ -1445,7 +1476,7 @@ async function loadCurrentRentals(agentId) {
             console.warn('Empty state element not found in rentals container');
         }
         
-        // Get current rentals from API
+        // Rest of the function remains unchanged
         const { ipcRenderer } = require('electron');
         
         // Add a timestamp parameter to avoid browser caching
@@ -4009,37 +4040,50 @@ function updatePagination() {
     }
 }
 
-function initializeReviewsSection() {
+function initializeReviewsSection(attemptCount = 0, maxAttempts = 5) {
     console.log('Initializing reviews section');
     
-    // Wait for auth state before loading reviews and interacting with DOM
+    // Check for the section, or try to find the parent where it should go
+    let reviewsSection = document.querySelector('.reviews-section');
+    const reviewsSectionParent = document.getElementById('reviews') || document.getElementById('feedback');
+    
+    // If section doesn't exist but we have a parent, create it
+    if (!reviewsSection && reviewsSectionParent) {
+        console.log('Creating missing reviews-section container');
+        reviewsSection = document.createElement('div');
+        reviewsSection.className = 'reviews-section';
+        reviewsSectionParent.appendChild(reviewsSection);
+    }
+    
+    // If we still don't have a reviews section, there's a more serious issue
+    if (!reviewsSection) {
+        console.error('Could not find or create reviews section - parent element missing');
+        return;
+    }
+    
+    console.log('Found/created reviews section, proceeding with initialization');
+    
+    // Prepare container elements for reviews
+    let reviewsGrid = reviewsSection.querySelector('.reviews-grid');
+    if (!reviewsGrid) {
+        console.log('Creating missing reviews-grid container');
+        reviewsGrid = document.createElement('div');
+        reviewsGrid.className = 'reviews-grid';
+        reviewsSection.appendChild(reviewsGrid);
+    }
+    
+    let reviewsList = reviewsSection.querySelector('#agentReviewsList');
+    if (!reviewsList) {
+        console.log('Creating missing agentReviewsList container');
+        reviewsList = document.createElement('div');
+        reviewsList.id = 'agentReviewsList';
+        reviewsList.className = 'reviews-list';
+        reviewsGrid.appendChild(reviewsList);
+    }
+    
+    // Wait for auth state before loading reviews
     firebase.auth().onAuthStateChanged(user => {
         if (user) {
-            // Query for DOM elements *after* confirming user auth
-            const reviewsSection = document.querySelector('.reviews-section');
-            if (!reviewsSection) {
-                console.error('Reviews section not found in DOM');
-                return; // Exit if the section isn't found
-            }
-
-            // Check for required containers and create them if needed (now safely inside)
-            let reviewsGrid = reviewsSection.querySelector('.reviews-grid');
-            if (!reviewsGrid) {
-                console.log('Creating missing reviews-grid container');
-                reviewsGrid = document.createElement('div');
-                reviewsGrid.className = 'reviews-grid';
-                reviewsSection.appendChild(reviewsGrid);
-            }
-            
-            let reviewsList = reviewsSection.querySelector('#agentReviewsList'); // Use querySelector for consistency
-            if (!reviewsList) {
-                console.log('Creating missing agentReviewsList container');
-                reviewsList = document.createElement('div');
-                reviewsList.id = 'agentReviewsList';
-                reviewsList.className = 'reviews-list';
-                reviewsGrid.appendChild(reviewsList);
-            }
-
             // Store agent ID in localStorage
             localStorage.setItem('agentId', user.uid);
             console.log('Agent ID saved to localStorage for reviews:', user.uid);
@@ -4087,13 +4131,7 @@ function initializeReviewsSection() {
             }
         } else {
             console.log('User not authenticated, reviews section will not load');
-            // Attempt to find the section to show empty state, but handle if it doesn't exist yet
-            const reviewsSection = document.querySelector('.reviews-section');
-            if (reviewsSection) {
-                 showReviewsEmptyState(); // Only call if section exists
-            } else {
-                console.warn('Reviews section not found for showing empty state.');
-            }
+            showReviewsEmptyState();
         }
     });
 }
@@ -4102,8 +4140,8 @@ function initializeReviewsSection() {
 document.addEventListener('DOMContentLoaded', function() {
     // ... existing initialization code ...
     
-    // Initialize reviews section slightly later to ensure DOM is ready
-    setTimeout(initializeReviewsSection, 0);
+    // Initialize reviews section with a longer delay to ensure DOM is ready
+    setTimeout(initializeReviewsSection, 500);
     
     // REMOVED duplicate DOMContentLoaded listener that was here
 });
