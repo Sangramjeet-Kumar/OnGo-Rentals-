@@ -728,6 +728,9 @@ function loadDashboardMetrics(db) {
             return;
         }
         
+        // Update recent activity with real data
+        updateRecentActivity(agentId);
+        
         // Use Electron's IPC to call the API and get vehicle data
         const { ipcRenderer } = require('electron');
         
@@ -827,9 +830,6 @@ function loadDashboardMetrics(db) {
             // Use a default value as placeholder
             animateCounter('totalRevenue', 0, 85450, 1500, '₹');
         });
-        
-        // Update Recent Activity with real data
-        updateRecentActivity(agentId);
         
     } catch (error) {
         console.error('Error in loadDashboardMetrics:', error);
@@ -4412,31 +4412,31 @@ function initializeReviewsSection(attemptCount = 0, maxAttempts = 5) {
     }
     
     // If we still don't have a reviews section, there's a more serious issue
-            if (!reviewsSection) {
+    if (!reviewsSection) {
         console.error('Could not find or create reviews section - parent element missing');
         return;
-            }
-
+    }
+    
     console.log('Found/created reviews section, proceeding with initialization');
     
     // Prepare container elements for reviews
-            let reviewsGrid = reviewsSection.querySelector('.reviews-grid');
-            if (!reviewsGrid) {
-                console.log('Creating missing reviews-grid container');
-                reviewsGrid = document.createElement('div');
-                reviewsGrid.className = 'reviews-grid';
-                reviewsSection.appendChild(reviewsGrid);
-            }
-            
+    let reviewsGrid = reviewsSection.querySelector('.reviews-grid');
+    if (!reviewsGrid) {
+        console.log('Creating missing reviews-grid container');
+        reviewsGrid = document.createElement('div');
+        reviewsGrid.className = 'reviews-grid';
+        reviewsSection.appendChild(reviewsGrid);
+    }
+    
     let reviewsList = reviewsSection.querySelector('#agentReviewsList');
-            if (!reviewsList) {
-                console.log('Creating missing agentReviewsList container');
-                reviewsList = document.createElement('div');
-                reviewsList.id = 'agentReviewsList';
-                reviewsList.className = 'reviews-list';
-                reviewsGrid.appendChild(reviewsList);
-            }
-
+    if (!reviewsList) {
+        console.log('Creating missing agentReviewsList container');
+        reviewsList = document.createElement('div');
+        reviewsList.id = 'agentReviewsList';
+        reviewsList.className = 'reviews-list';
+        reviewsGrid.appendChild(reviewsList);
+    }
+    
     // Wait for auth state before loading reviews
     firebase.auth().onAuthStateChanged(user => {
         if (user) {
@@ -4573,7 +4573,7 @@ function filterReviews() {
     console.log("Filtered reviews:", window.filteredReviews.length);
 }
 
-// Function to update Recent Activity section with real data
+// Function to update the Recent Activity section with real data
 async function updateRecentActivity(agentId) {
     console.log('Updating recent activity with real data...');
     
@@ -4587,759 +4587,296 @@ async function updateRecentActivity(agentId) {
         }
         
         // Clear existing activity items
-        activityList.innerHTML = '<div class="activity-loading"><i class="fas fa-spinner fa-spin"></i><p>Loading activity...</p></div>';
+        activityList.innerHTML = '<div class="loading">Loading recent activity...</div>';
         
-        // Collect activities from different sources
-        const activities = [];
+        // Array to hold activity items from various sources
+        const allActivities = [];
         
-        // 1. Get the most recent completed rental (from Past Rentals)
-        try {
-            const pastRentalsResponse = await ipcRenderer.invoke('api-call', {
-                method: 'GET',
-                url: `/api/bookings/completed/agent/${agentId}`
-            });
-            
-            if (pastRentalsResponse.ok && pastRentalsResponse.data && Array.isArray(pastRentalsResponse.data) && pastRentalsResponse.data.length > 0) {
-                // Sort by return date (most recent first)
-                const sortedRentals = pastRentalsResponse.data.sort((a, b) => {
-                    const dateA = new Date(a.returnDate || 0);
-                    const dateB = new Date(b.returnDate || 0);
-                    return dateB - dateA; // Most recent first
-                });
-                
-                if (sortedRentals.length > 0) {
-                    const latestRental = sortedRentals[0];
-                    
-                    // Get customer name
-                    let customerName = 'a customer';
-                    if (latestRental.customerName) {
-                        customerName = latestRental.customerName;
-                    } else if (latestRental.userId || latestRental.customerId) {
-                        // Try to fetch customer details
-                        try {
-                            const customerResponse = await ipcRenderer.invoke('api-call', {
-                                method: 'GET',
-                                url: `/api/users/${latestRental.userId || latestRental.customerId}`
-                            });
-                            
-                            if (customerResponse.ok && customerResponse.data) {
-                                customerName = customerResponse.data.name || customerResponse.data.username || customerName;
-                            }
-                        } catch (error) {
-                            console.error('Error fetching customer details:', error);
-                        }
-                    }
-                    
-                    // Vehicle name
-                    let vehicleName = 'a vehicle';
-                    if (latestRental.vehicleName && latestRental.vehicleName !== "undefined undefined") {
-                        vehicleName = latestRental.vehicleName;
-                    } else if (latestRental.vehicleId) {
-                        // Try to fetch vehicle details
-                        try {
-                            const vehicleResponse = await ipcRenderer.invoke('api-call', {
-                                method: 'GET',
-                                url: `/api/vehicles/${latestRental.vehicleId}`
-                            });
-                            
-                            if (vehicleResponse.ok && vehicleResponse.data) {
-                                vehicleName = vehicleResponse.data.name || 
-                                    `${vehicleResponse.data.make || ''} ${vehicleResponse.data.model || ''}`.trim() || 
-                                    vehicleName;
-                            }
-                        } catch (error) {
-                            console.error('Error fetching vehicle details:', error);
-                        }
-                    }
-                    
-                    // Format date
-                    const returnDate = new Date(latestRental.returnDate);
-                    const formattedTime = formatActivityTime(returnDate);
-                    
-                    // Add to activities array
-                    activities.push({
-                        type: 'rental-completed',
-                        icon: 'fas fa-check-circle',
-                        title: 'Rental Completed',
-                        description: `${vehicleName} returned by ${customerName}`,
-                        time: formattedTime,
-                        date: returnDate
-                    });
-                }
-            } else {
-                // Fallback to search endpoint if the main one fails
-                const fallbackResponse = await ipcRenderer.invoke('api-call', {
-                    method: 'GET',
-                    url: `/api/bookings/search?agentId=${agentId}&status=completed`
-                });
-                
-                if (fallbackResponse.ok && fallbackResponse.data && Array.isArray(fallbackResponse.data) && fallbackResponse.data.length > 0) {
-                    // Sort by return date (most recent first)
-                    const sortedRentals = fallbackResponse.data.sort((a, b) => {
-                        const dateA = new Date(a.returnDate || 0);
-                        const dateB = new Date(b.returnDate || 0);
-                        return dateB - dateA; // Most recent first
-                    });
-                    
-                    if (sortedRentals.length > 0) {
-                        const latestRental = sortedRentals[0];
-                        
-                        // Get vehicle name and customer name
-                        let vehicleName = latestRental.vehicleName || '347 2022';
-                        let customerName = latestRental.customerName || 'a customer';
-                        
-                        // Format date
-                        const returnDate = new Date(latestRental.returnDate || new Date());
-                        const formattedTime = formatActivityTime(returnDate);
-                        
-                        // Add to activities array
-                        activities.push({
-                            type: 'rental-completed',
-                            icon: 'fas fa-check-circle',
-                            title: 'Rental Completed',
-                            description: `${vehicleName} returned by ${customerName}`,
-                            time: formattedTime,
-                            date: returnDate
-                        });
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error fetching past rentals for activity:', error);
-            // Add fallback activity for completed rental
-            activities.push({
-                type: 'rental-completed',
-                icon: 'fas fa-check-circle',
-                title: 'Rental Completed',
-                description: `347 2022 returned by a customer`,
-                time: 'Today, 05:30 AM',
-                date: new Date()
-            });
-        }
-        
-        // 2. Get the most recent current rental (from Current Rentals)
-        try {
-            // First approach: Try to directly access the current rentals cards from DOM
-            const currentRentalCards = document.querySelectorAll('.rental-card, .rental-item');
-            const currentRentals = [];
-            
-            // If we have rental cards in the DOM, extract info from them
-            if (currentRentalCards.length > 0) {
-                currentRentalCards.forEach(card => {
-                    try {
-                        // Extract data from the card UI
-                        const vehicleNameEl = card.querySelector('.rental-vehicle-info h3, .vehicle-name');
-                        const customerNameEl = card.querySelector('.rental-customer-info h4, .customer-name, .renter-name');
-                        const dateEl = card.querySelector('.rental-date, .pickup-date');
-                        
-                        let vehicleName = 'Hero Splender'; // Default to what we see in the UI
-                        let customerName = 'a';            // Default to what we see in the UI
-                        let date = new Date();             // Default to today
-                        
-                        if (vehicleNameEl) {
-                            vehicleName = vehicleNameEl.textContent.trim();
-                        }
-                        
-                        if (customerNameEl) {
-                            customerName = customerNameEl.textContent.trim();
-                        }
-                        
-                        if (dateEl) {
-                            const dateText = dateEl.textContent.trim();
-                            if (dateText) {
-                                try {
-                                    date = new Date(dateText);
-                                } catch (e) {
-                                    // Keep default date
-                                }
-                            }
-                        }
-                        
-                        // Get the most recent date between pickup and today
-                        date = date > new Date() ? new Date() : date;
-                        
-                        currentRentals.push({
-                            vehicleName,
-                            customerName,
-                            pickupDate: date,
-                            isToday: true  // Mark as today's rental
-                        });
-                    } catch (e) {
-                        console.error('Error parsing rental card:', e);
-                    }
-                });
-                
-                // Sort by most recent first
-                currentRentals.sort((a, b) => b.pickupDate - a.pickupDate);
-            }
-            
-            // If we found current rentals in the DOM, use the most recent one
-            if (currentRentals.length > 0) {
-                const latestRental = currentRentals[0];
-                
-                // Format date - always use today for current rentals
-                const formattedTime = 'Today, ' + new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-                
-                // Add to activities array
-                activities.push({
-                    type: 'new-rental',
-                    icon: 'fas fa-key',
-                    title: 'New Rental',
-                    description: `${latestRental.vehicleName} rented by ${latestRental.customerName}`,
-                    time: formattedTime,
-                    date: new Date(), // Today's date
-                    priority: 100    // Higher priority to show at top
-                });
-            } else {
-                // Fallback to API if DOM approach didn't work
-                const currentRentalsResponse = await ipcRenderer.invoke('api-call', {
-                    method: 'GET',
-                    url: `/api/bookings/active/agent/${agentId}`
-                });
-                
-                if (currentRentalsResponse.ok && currentRentalsResponse.data && Array.isArray(currentRentalsResponse.data) && currentRentalsResponse.data.length > 0) {
-                    // Sort by pickup date (most recent first)
-                    const sortedRentals = currentRentalsResponse.data.sort((a, b) => {
-                        const dateA = new Date(a.pickupDate || 0);
-                        const dateB = new Date(b.pickupDate || 0);
-                        return dateB - dateA; // Most recent first
-                    });
-                    
-                    if (sortedRentals.length > 0) {
-                        const latestRental = sortedRentals[0];
-                        
-                        // Get customer name
-                        let customerName = 'a';  // Default from UI
-                        if (latestRental.customerName) {
-                            customerName = latestRental.customerName;
-                        } else if (latestRental.userId || latestRental.customerId) {
-                            // Try to fetch customer details
-                            try {
-                                const customerResponse = await ipcRenderer.invoke('api-call', {
-                                    method: 'GET',
-                                    url: `/api/users/${latestRental.userId || latestRental.customerId}`
-                                });
-                                
-                                if (customerResponse.ok && customerResponse.data) {
-                                    customerName = customerResponse.data.name || customerResponse.data.username || customerName;
-                                }
-                            } catch (error) {
-                                console.error('Error fetching customer details:', error);
-                            }
-                        }
-                        
-                        // Vehicle name
-                        let vehicleName = 'Hero Splender';  // Default from UI
-                        if (latestRental.vehicleName && latestRental.vehicleName !== "undefined undefined") {
-                            vehicleName = latestRental.vehicleName;
-                        } else if (latestRental.vehicleId) {
-                            // Try to fetch vehicle details
-                            try {
-                                const vehicleResponse = await ipcRenderer.invoke('api-call', {
-                                    method: 'GET',
-                                    url: `/api/vehicles/${latestRental.vehicleId}`
-                                });
-                                
-                                if (vehicleResponse.ok && vehicleResponse.data) {
-                                    vehicleName = vehicleResponse.data.name || 
-                                        `${vehicleResponse.data.make || ''} ${vehicleResponse.data.model || ''}`.trim() || 
-                                        vehicleName;
-                                }
-                            } catch (error) {
-                                console.error('Error fetching vehicle details:', error);
-                            }
-                        }
-                        
-                        // Format date
-                        const pickupDate = new Date(latestRental.pickupDate);
-                        const formattedTime = formatActivityTime(pickupDate);
-                        
-                        // Add to activities array
-                        activities.push({
-                            type: 'new-rental',
-                            icon: 'fas fa-key',
-                            title: 'New Rental',
-                            description: `${vehicleName} rented by ${customerName}`,
-                            time: formattedTime,
-                            date: pickupDate,
-                            priority: 100  // Higher priority to show at top
-                        });
-                    }
-                }
-            }
-            
-            // If still no current rentals found, use hardcoded fallback from UI
-            if (!activities.some(a => a.type === 'new-rental')) {
-                // Add fallback data from UI
-                activities.push({
-                    type: 'new-rental',
-                    icon: 'fas fa-key',
-                    title: 'New Rental',
-                    description: `Hero Splender rented by a`,
-                    time: 'Today, 09:30 AM',
-                    date: new Date(),
-                    priority: 100  // Higher priority to show at top
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching current rentals for activity:', error);
-            // Add fallback activity for new rental from UI
-            activities.push({
-                type: 'new-rental',
-                icon: 'fas fa-key',
-                title: 'New Rental',
-                description: `Hero Splender rented by a`,
-                time: 'Today, 09:30 AM',
-                date: new Date(),
-                priority: 100  // Higher priority
-            });
-        }
-        
-        // 3. Get the most recent review (from Reviews & Feedback)
-        try {
-            // First approach: Direct DOM inspection for more reliable real-time data
-            const reviewCards = document.querySelectorAll('.customer-reviews .review-item, .customer-review');
-            const reviews = [];
-            
-            console.log('Found review cards:', reviewCards.length);
-            
-            // If we have review cards in the DOM, extract info from them
-            if (reviewCards.length > 0) {
-                reviewCards.forEach((card, index) => {
-                    try {
-                        // Extract data from the card UI
-                        const customerNameEl = card.querySelector('.reviewer-name, .customer-name, .avatar-letter');
-                        const ratingStarsEl = card.querySelectorAll('.rating-stars .fas.fa-star, .rating-stars .far.fa-star, .star.filled');
-                        const dateEl = card.querySelector('.review-date');
-                        const vehicleNameEl = card.querySelector('.vehicle-name');
-                        const reviewTextEl = card.querySelector('.review-text, .review-content');
-                        
-                        console.log(`Processing review card ${index}`);
-                        
-                        let customerName = 'a';  // Default from UI
-                        let rating = 5;          // Default from UI for newest review
-                        let date = new Date();   // Default to today
-                        let vehicleName = 'Hero Splender'; // Default from UI for newest review
-                        let reviewText = '';
-                        
-                        if (customerNameEl) {
-                            customerName = customerNameEl.textContent.trim();
-                            console.log('Found customer name:', customerName);
-                        }
-                        
-                        // Get rating by counting filled stars
-                        if (ratingStarsEl && ratingStarsEl.length > 0) {
-                            rating = ratingStarsEl.length;
-                            console.log('Found rating stars:', rating);
-                        }
-                        
-                        if (dateEl) {
-                            const dateText = dateEl.textContent.trim();
-                            console.log('Found date text:', dateText);
-                            if (dateText) {
-                                try {
-                                    // Try to parse the date
-                                    date = new Date(dateText);
-                                    // If date is invalid, use today's date
-                                    if (isNaN(date.getTime())) {
-                                        console.log('Invalid date, using today');
-                                        date = new Date();
-                                    }
-                                } catch (e) {
-                                    console.error('Error parsing date:', e);
-                                    date = new Date();
-                                }
-                            }
-                        }
-                        
-                        if (vehicleNameEl) {
-                            vehicleName = vehicleNameEl.textContent.trim();
-                            console.log('Found vehicle name:', vehicleName);
-                        } else {
-                            // Try to extract vehicle name from the review text or elsewhere in the card
-                            const potentialVehicleEl = card.querySelector('strong, .vehicle-id, .vehicle-info');
-                            if (potentialVehicleEl) {
-                                const vehicleText = potentialVehicleEl.textContent.trim();
-                                if (vehicleText && !vehicleText.includes('customer') && !vehicleText.includes('user')) {
-                                    vehicleName = vehicleText;
-                                    console.log('Found potential vehicle name:', vehicleName);
-                                }
-                            }
-                        }
-                        
-                        if (reviewTextEl) {
-                            reviewText = reviewTextEl.textContent.trim();
-                            console.log('Found review text:', reviewText);
-                            
-                            // Try to determine vehicle name from review text if not found
-                            if (vehicleName === 'Hero Splender' && reviewText.includes('Hero')) {
-                                vehicleName = 'Hero Splender';
-                            } else if (vehicleName === 'Hero Splender' && reviewText.includes('347')) {
-                                vehicleName = '347 2022';
-                            } else if (vehicleName === 'Hero Splender' && reviewText.includes('TVS')) {
-                                vehicleName = 'TVS 800';
-                            }
-                        }
-                        
-                        // Check card header for vehicle name
-                        const headerEl = card.querySelector('.review-header, .review-title');
-                        if (headerEl) {
-                            const headerText = headerEl.textContent.trim();
-                            console.log('Found header text:', headerText);
-                            if (headerText.includes('Hero')) {
-                                vehicleName = 'Hero Splender';
-                            } else if (headerText.includes('347')) {
-                                vehicleName = '347 2022';
-                            } else if (headerText.includes('TVS')) {
-                                vehicleName = 'TVS 800';
-                            }
-                        }
-                        
-                        // Look for vehicle name in the review context
-                        const vehicleContext = card.textContent;
-                        if (vehicleContext.includes('Hero Splender')) {
-                            vehicleName = 'Hero Splender';
-                        } else if (vehicleContext.includes('347 2022')) {
-                            vehicleName = '347 2022';
-                        } else if (vehicleContext.includes('TVS 800')) {
-                            vehicleName = 'TVS 800';
-                        }
-                        
-                        reviews.push({
-                            customerName,
-                            rating,
-                            date,
-                            vehicleName,
-                            reviewText,
-                            index: index  // Keep track of the visual order
-                        });
-                        
-                        console.log(`Added review: ${vehicleName} by ${customerName}, rating: ${rating}`);
-                    } catch (e) {
-                        console.error('Error parsing review card:', e);
-                    }
-                });
-                
-                // For new reviews section, prioritize the first card which is likely the newest
-                if (reviews.length > 0) {
-                    // Sort first by index (visual order in the UI)
-                    reviews.sort((a, b) => a.index - b.index);
-                    console.log('Sorted reviews by visual order:', reviews);
-                    
-                    // Take the first review as it appears in the UI (newest first)
-                    const latestReview = reviews[0];
-                    
-                    // Format date
-                    const formattedTime = formatActivityTime(latestReview.date);
-                    
-                    // Add to activities array with high priority to ensure it shows up
-                    activities.push({
-                        type: 'new-review',
-                        icon: 'fas fa-star',
-                        title: 'New Review',
-                        description: `${latestReview.rating}-star review received from ${latestReview.customerName}`,
-                        time: formattedTime,
-                        date: latestReview.date,
-                        priority: 90,  // Very high priority for visual first review
-                        vehicleName: latestReview.vehicleName
-                    });
-                    
-                    console.log('Added latest review from DOM to activities:', latestReview);
-                }
-            } else {
-                console.log('No review cards found in DOM, trying backup approach');
-                
-                // If we can't find reviews in the DOM, try a different selector approach
-                const reviewSections = document.querySelectorAll('.customer-reviews, .reviews-container, .review-list');
-                
-                reviewSections.forEach(section => {
-                    const reviewerElements = section.querySelectorAll('.avatar-letter, .reviewer-name, .customer-name');
-                    const ratingElements = section.querySelectorAll('.stars, .rating, .review-rating');
-                    const vehicleElements = section.querySelectorAll('.vehicle-name, .vehicle-info');
-                    
-                    console.log('Alternate approach - found reviewers:', reviewerElements.length);
-                    console.log('Alternate approach - found ratings:', ratingElements.length);
-                    
-                    if (reviewerElements.length > 0) {
-                        // Get the first reviewer (most recent)
-                        const customerName = reviewerElements[0].textContent.trim() || 'a';
-                        
-                        // Get rating if available
-                        let rating = 5;  // Default for newest review
-                        if (ratingElements.length > 0) {
-                            const ratingText = ratingElements[0].textContent.trim();
-                            const ratingMatch = ratingText.match(/(\d+)/);
-                            if (ratingMatch) {
-                                rating = parseInt(ratingMatch[1]);
-                            }
-                        }
-                        
-                        // Get vehicle name if available
-                        let vehicleName = 'Hero Splender';  // Default for newest review
-                        if (vehicleElements.length > 0) {
-                            vehicleName = vehicleElements[0].textContent.trim();
-                        }
-                        
-                        // Format date - use today for newest review
-                        const today = new Date();
-                        const formattedTime = formatActivityTime(today);
-                        
-                        // Add to activities array with high priority
-                        activities.push({
-                            type: 'new-review',
-                            icon: 'fas fa-star',
-                            title: 'New Review',
-                            description: `${rating}-star review received from ${customerName}`,
-                            time: formattedTime,
-                            date: today,
-                            priority: 90,  // Very high priority
-                            vehicleName: vehicleName
-                        });
-                        
-                        console.log('Added review using alternate DOM approach:', { customerName, rating, vehicleName });
-                    }
-                });
-            }
-            
-            // If still no reviews found via DOM, fall back to API
-            if (!activities.some(a => a.type === 'new-review')) {
-                console.log('No reviews found in DOM, trying API');
-                
-                // Fallback to API if DOM approach didn't work
-                const reviewsResponse = await ipcRenderer.invoke('api-call', {
-                    method: 'GET',
-                    url: `/api/reviews/agent/${agentId}`
-                });
-                
-                if (reviewsResponse.ok && reviewsResponse.data && Array.isArray(reviewsResponse.data) && reviewsResponse.data.length > 0) {
-                    // Sort by date (most recent first)
-                    const sortedReviews = reviewsResponse.data.sort((a, b) => {
-                        const dateA = new Date(a.createdAt || a.date || 0);
-                        const dateB = new Date(b.createdAt || b.date || 0);
-                        return dateB - dateA; // Most recent first
-                    });
-                    
-                    if (sortedReviews.length > 0) {
-                        const latestReview = sortedReviews[0];
-                        
-                        // Get customer name
-                        let customerName = 'a';  // Default from UI for newest review
-                        if (latestReview.customerName) {
-                            customerName = latestReview.customerName;
-                        } else if (latestReview.userId || latestReview.customerId) {
-                            // Try to fetch customer details
-                            try {
-                                const customerResponse = await ipcRenderer.invoke('api-call', {
-                                    method: 'GET',
-                                    url: `/api/users/${latestReview.userId || latestReview.customerId}`
-                                });
-                                
-                                if (customerResponse.ok && customerResponse.data) {
-                                    customerName = customerResponse.data.name || customerResponse.data.username || customerName;
-                                }
-                            } catch (error) {
-                                console.error('Error fetching customer details for review:', error);
-                            }
-                        }
-                        
-                        // Rating text
-                        const rating = latestReview.rating || 5;  // Default 5 for newest review
-                        const ratingText = `${rating}-star`;
-                        
-                        // Get vehicle name
-                        let vehicleName = 'Hero Splender';  // Default from UI for newest review
-                        if (latestReview.vehicleName) {
-                            vehicleName = latestReview.vehicleName;
-                        } else if (latestReview.vehicleId) {
-                            try {
-                                const vehicleResponse = await ipcRenderer.invoke('api-call', {
-                                    method: 'GET',
-                                    url: `/api/vehicles/${latestReview.vehicleId}`
-                                });
-                                
-                                if (vehicleResponse.ok && vehicleResponse.data) {
-                                    vehicleName = vehicleResponse.data.name || 
-                                        `${vehicleResponse.data.make || ''} ${vehicleResponse.data.model || ''}`.trim() || 
-                                        vehicleName;
-                                }
-                            } catch (error) {
-                                console.error('Error fetching vehicle details for review:', error);
-                            }
-                        }
-                        
-                        // Format date
-                        const reviewDate = new Date(latestReview.createdAt || latestReview.date);
-                        const formattedTime = formatActivityTime(reviewDate);
-                        
-                        // Add to activities array
-                        activities.push({
-                            type: 'new-review',
-                            icon: 'fas fa-star',
-                            title: 'New Review',
-                            description: `${ratingText} review received from ${customerName}`,
-                            time: formattedTime,
-                            date: reviewDate,
-                            priority: 90,  // High priority
-                            vehicleName: vehicleName
-                        });
-                        
-                        console.log('Added latest review from API:', latestReview);
-                    }
-                }
-            }
-            
-            // If still no reviews found, use hardcoded fallback based on the newest review in the UI
-            if (!activities.some(a => a.type === 'new-review')) {
-                console.log('No reviews found via any method, using hardcoded fallback');
-                
-                // Add fallback data from UI - for the newest review shown in the screenshots
-                activities.push({
-                    type: 'new-review',
-                    icon: 'fas fa-star',
-                    title: 'New Review',
-                    description: `5-star review received from a`,
-                    time: 'Today, 10:15 AM',
-                    date: new Date(),
-                    priority: 90,  // High priority
-                    vehicleName: 'Hero Splender'
-                });
-                
-                console.log('Added hardcoded fallback review');
-            }
-        } catch (error) {
-            console.error('Error fetching reviews for activity:', error);
-            
-            // Add fallback activity for new review - use the newest one from screenshots
-            activities.push({
-                type: 'new-review',
-                icon: 'fas fa-star',
-                title: 'New Review',
-                description: `5-star review received from a`,
-                time: 'Today, 10:15 AM',
-                date: new Date(),
-                priority: 90,  // High priority
-                vehicleName: 'Hero Splender'
-            });
-            
-            console.log('Added error fallback review');
-        }
-
-        // Make sure we have all 3 activity types
-        const activityTypes = activities.map(a => a.type);
-        
-        // Add missing activity types with fallback data if needed
-        if (!activityTypes.includes('rental-completed')) {
-            activities.push({
-                type: 'rental-completed',
-                icon: 'fas fa-check-circle',
-                title: 'Rental Completed',
-                description: `347 2022 returned by a customer`,
-                time: 'Today, 05:30 AM',
-                date: new Date(new Date().getTime() - 7200000) // 2 hours ago
-            });
-        }
-        
-        if (!activityTypes.includes('new-rental')) {
-            activities.push({
-                type: 'new-rental',
-                icon: 'fas fa-key',
-                title: 'New Rental',
-                description: `Hero Splender rented by a`,
-                time: 'Today, 09:30 AM',
-                date: new Date(new Date().getTime() - 3600000), // 1 hour ago
-                priority: 100  // Higher priority
-            });
-        }
-        
-        if (!activityTypes.includes('new-review')) {
-            activities.push({
-                type: 'new-review',
-                icon: 'fas fa-star',
-                title: 'New Review',
-                description: `5-star review received from a`,
-                time: 'Today, 10:15 AM',
-                date: new Date(),
-                priority: 90,  // High priority
-                vehicleName: 'Hero Splender'
-            });
-        }
-        
-        // Sort all activities by priority first, then by date
-        activities.sort((a, b) => {
-            // First sort by priority (higher first)
-            const priorityA = a.priority || 0;
-            const priorityB = b.priority || 0;
-            if (priorityB !== priorityA) {
-                return priorityB - priorityA;
-            }
-            // Then sort by date (most recent first)
-            return b.date - a.date;
+        // 1. Get the most recent completed rental from Past Rentals
+        const pastRentalsResponse = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/completed/agent/${agentId}`
         });
         
-        // Clear loading indicator
+        if (pastRentalsResponse.ok && pastRentalsResponse.data && Array.isArray(pastRentalsResponse.data) && pastRentalsResponse.data.length > 0) {
+            // Sort by return date (most recent first)
+            const sortedPastRentals = pastRentalsResponse.data.sort((a, b) => {
+                return new Date(b.returnDate) - new Date(a.returnDate);
+            });
+            
+            const latestReturn = sortedPastRentals[0];
+            if (latestReturn) {
+                // Create completed rental activity
+                allActivities.push({
+                    type: 'rental-completed',
+                    icon: 'check-circle',
+                    title: 'Rental Completed',
+                    description: `${latestReturn.vehicleName || 'Vehicle'} returned by ${latestReturn.customerName || 'Customer'}`,
+                    timestamp: new Date(latestReturn.returnDate),
+                    data: latestReturn
+                });
+            }
+        } else {
+            console.warn('No past rentals found or error fetching past rentals');
+        }
+        
+        // 2. Get the most recent active rental from Current Rentals
+        const currentRentalsResponse = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/active/agent/${agentId}`
+        });
+        
+        if (currentRentalsResponse.ok && currentRentalsResponse.data && Array.isArray(currentRentalsResponse.data) && currentRentalsResponse.data.length > 0) {
+            // Sort by pickup date (most recent first)
+            const sortedCurrentRentals = currentRentalsResponse.data.sort((a, b) => {
+                return new Date(b.pickupDate) - new Date(a.pickupDate);
+            });
+            
+            const latestRental = sortedCurrentRentals[0];
+            if (latestRental) {
+                // Create new rental activity
+                allActivities.push({
+                    type: 'new-rental',
+                    icon: 'key',
+                    title: 'New Rental',
+                    description: `${latestRental.vehicleName || 'Vehicle'} rented by ${latestRental.customerName || 'Customer'}`,
+                    timestamp: new Date(latestRental.pickupDate),
+                    data: latestRental
+                });
+            }
+        } else {
+            console.warn('No current rentals found or error fetching current rentals');
+        }
+        
+        // 3. Get the most recent review from Reviews
+        const reviewsResponse = await ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/reviews/agent/${agentId}`
+        });
+        
+        if (reviewsResponse.ok && reviewsResponse.data && Array.isArray(reviewsResponse.data) && reviewsResponse.data.length > 0) {
+            // Sort by review date (most recent first)
+            const sortedReviews = reviewsResponse.data.sort((a, b) => {
+                return new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date);
+            });
+            
+            const latestReview = sortedReviews[0];
+            if (latestReview) {
+                // Create new review activity
+                allActivities.push({
+                    type: 'new-review',
+                    icon: 'star',
+                    title: 'New Review',
+                    description: `${latestReview.rating}-star review received from ${latestReview.customerName || 'Customer'}`,
+                    timestamp: new Date(latestReview.createdAt || latestReview.date),
+                    data: latestReview
+                });
+            }
+        } else {
+            console.warn('No reviews found or error fetching reviews');
+        }
+        
+        // Sort all activities by timestamp (most recent first)
+        allActivities.sort((a, b) => b.timestamp - a.timestamp);
+        
+        // Clear loading message
         activityList.innerHTML = '';
         
-        // Display activities (always shows the 3 types regardless of empty state)
-        // Take the top 3 most recent activities
-        const recentActivities = activities.slice(0, 3);
+        // Display activities or show empty message
+        if (allActivities.length === 0) {
+            activityList.innerHTML = '<div class="empty-activity">No recent activity found</div>';
+            return;
+        }
         
-        // Render each activity
-        recentActivities.forEach(activity => {
+        // Format timestamp function
+        const formatTimestamp = (timestamp) => {
+            const now = new Date();
+            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            // Check if date is today or yesterday
+            if (timestamp >= today) {
+                return `Today, ${timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+            } else if (timestamp >= yesterday) {
+                return `Yesterday, ${timestamp.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+            } else {
+                return timestamp.toLocaleDateString('en-US', { 
+                    month: 'short', 
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+            }
+        };
+        
+        // Add activities to the list (limit to 3 most recent)
+        allActivities.slice(0, 3).forEach(activity => {
             const activityItem = document.createElement('div');
             activityItem.className = 'activity-item';
+            
             activityItem.innerHTML = `
                 <div class="activity-icon">
-                    <i class="${activity.icon}"></i>
+                    <i class="fas fa-${activity.icon}"></i>
                 </div>
                 <div class="activity-details">
                     <h4>${activity.title}</h4>
                     <p>${activity.description}</p>
-                    <span class="activity-time">${activity.time}</span>
+                    <span class="activity-time">${formatTimestamp(activity.timestamp)}</span>
                 </div>
             `;
+            
             activityList.appendChild(activityItem);
         });
         
-        console.log('Recent activity updated successfully with real data');
+        console.log('Recent activity updated with real data');
         
     } catch (error) {
         console.error('Error updating recent activity:', error);
         
-        // Show default activity items with correct data from UI instead of error state
+        // Show error message
+        const activityList = document.getElementById('recentActivityList');
         if (activityList) {
             activityList.innerHTML = `
-                <div class="activity-item">
-                    <div class="activity-icon">
-                        <i class="fas fa-key"></i>
-                    </div>
-                    <div class="activity-details">
-                        <h4>New Rental</h4>
-                        <p>Hero Splender rented by a</p>
-                        <span class="activity-time">Today, 09:30 AM</span>
-                    </div>
-                </div>
-                <div class="activity-item">
-                    <div class="activity-icon">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="activity-details">
-                        <h4>Rental Completed</h4>
-                        <p>347 2022 returned by a customer</p>
-                        <span class="activity-time">Today, 05:30 AM</span>
-                    </div>
-                </div>
-                <div class="activity-item">
-                    <div class="activity-icon">
-                        <i class="fas fa-star"></i>
-                    </div>
-                    <div class="activity-details">
-                        <h4>New Review</h4>
-                        <p>4-star review received from a</p>
-                        <span class="activity-time">Yesterday, 05:15 PM</span>
-                    </div>
+                <div class="error-activity">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Failed to load recent activity</p>
                 </div>
             `;
         }
     }
 }
-// ... existing code ...
+
+// Update loadDashboardMetrics to also call the updateRecentActivity function
+function loadDashboardMetrics(db) {
+    console.log('Loading dashboard metrics...');
+    
+    // Initialize counters
+    let totalVehicles = 0;
+    let activeRentals = 0;
+    let availableVehicles = 0;
+    let totalRevenue = 0;
+    
+    try {
+        // Get the current user ID (agent ID)
+        const user = firebase.auth().currentUser;
+        const agentId = user ? user.uid : null;
+        
+        if (!agentId) {
+            console.warn('No authenticated user found when loading dashboard metrics');
+            return;
+        }
+        
+        // Update recent activity with real data
+        updateRecentActivity(agentId);
+        
+        // Use Electron's IPC to call the API and get vehicle data
+        const { ipcRenderer } = require('electron');
+        
+        // Fetch vehicles from MongoDB via API
+        ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/vehicles?agentId=${agentId}`
+        }).then(response => {
+            if (response.ok && response.data && Array.isArray(response.data)) {
+                const vehicles = response.data;
+                
+                // Total vehicles count
+                totalVehicles = vehicles.length;
+                
+                // Count by status
+                activeRentals = vehicles.filter(v => v.status === 'booked' || v.status === 'rented').length;
+                availableVehicles = vehicles.filter(v => v.status === 'active' || v.status === 'available').length;
+                
+                // Update the dashboard counters
+                animateCounter('totalVehicles', 0, totalVehicles, 1000);
+                animateCounter('activeRentals', 0, activeRentals, 1000);
+                animateCounter('availableVehicles', 0, availableVehicles, 1000);
+                
+                console.log(`Vehicles metrics loaded: Total: ${totalVehicles}, Active Rentals: ${activeRentals}, Available: ${availableVehicles}`);
+                
+                // Load top performing vehicles after we have the vehicle data
+                loadTopPerformingVehicles(vehicles, agentId);
+            } else {
+                console.warn('Failed to fetch vehicles data:', response);
+            }
+        }).catch(error => {
+            console.error('Error fetching vehicles data:', error);
+        });
+        
+        // Calculate total revenue from past rentals
+        ipcRenderer.invoke('api-call', {
+            method: 'GET',
+            url: `/api/bookings/completed/agent/${agentId}`
+        }).then(response => {
+            if (response.ok && response.data && Array.isArray(response.data)) {
+                const pastRentals = response.data;
+                
+                // Sum up total amounts from all completed rentals
+                pastRentals.forEach(rental => {
+                    if (rental.totalAmount) {
+                        // Remove currency symbol and commas if present, then parse as number
+                        const amount = parseFloat(rental.totalAmount.toString().replace(/[₹,]/g, ''));
+                        if (!isNaN(amount)) {
+                            totalRevenue += amount;
+                        }
+                    }
+                });
+                
+                // Update the total revenue counter with currency symbol
+                animateCounter('totalRevenue', 0, totalRevenue, 1500, '₹');
+                
+                console.log(`Total revenue calculated: ₹${totalRevenue}`);
+            } else {
+                console.warn('Failed to fetch past rentals data:', response);
+                
+                // Try fallback approach if the first attempt failed
+                ipcRenderer.invoke('api-call', {
+                    method: 'GET',
+                    url: `/api/bookings/search?agentId=${agentId}&status=completed`
+                }).then(fallbackResponse => {
+                    if (fallbackResponse.ok && fallbackResponse.data && Array.isArray(fallbackResponse.data)) {
+                        const fallbackRentals = fallbackResponse.data;
+                        
+                        // Sum up total amounts from all completed rentals
+                        fallbackRentals.forEach(rental => {
+                            if (rental.totalAmount) {
+                                // Remove currency symbol and commas if present, then parse as number
+                                const amount = parseFloat(rental.totalAmount.toString().replace(/[₹,]/g, ''));
+                                if (!isNaN(amount)) {
+                                    totalRevenue += amount;
+                                }
+                            }
+                        });
+                        
+                        // Update the total revenue counter with currency symbol
+                        animateCounter('totalRevenue', 0, totalRevenue, 1500, '₹');
+                        
+                        console.log(`Total revenue calculated (fallback): ₹${totalRevenue}`);
+                    } else {
+                        console.warn('Fallback attempt to fetch past rentals also failed:', fallbackResponse);
+                        // Use a default value as placeholder
+                        animateCounter('totalRevenue', 0, 85450, 1500, '₹');
+                    }
+                }).catch(fallbackError => {
+                    console.error('Error in fallback fetch of past rentals:', fallbackError);
+                    // Use a default value as placeholder
+                    animateCounter('totalRevenue', 0, 85450, 1500, '₹');
+                });
+            }
+        }).catch(error => {
+            console.error('Error fetching past rentals data:', error);
+            // Use a default value as placeholder
+            animateCounter('totalRevenue', 0, 85450, 1500, '₹');
+        });
+        
+    } catch (error) {
+        console.error('Error in loadDashboardMetrics:', error);
+        // Use default values as placeholders
+        animateCounter('totalVehicles', 0, 24, 1500);
+        animateCounter('activeRentals', 0, 8, 1500);
+        animateCounter('availableVehicles', 0, 3, 1500);
+        animateCounter('totalRevenue', 0, 85450, 1500, '₹');
+    }
+}
