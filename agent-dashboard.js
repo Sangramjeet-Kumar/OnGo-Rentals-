@@ -3543,6 +3543,7 @@ async function loadAgentReviews() {
         
         if (ipcRenderer) {
             try {
+                // Try primary endpoint first
                 console.log(`Sending API request for reviews: /api/reviews/agent/${agentId}?nocache=${timestamp}`);
                 response = await ipcRenderer.invoke('api-call', {
                     method: 'GET',
@@ -3557,13 +3558,17 @@ async function loadAgentReviews() {
                 
                 // Check response format and extract reviews
                 if (response.ok && response.data) {
-                    // Attempt to extract reviews from different response structures
+                    // Extract reviews array from the response
                     if (response.data.data && Array.isArray(response.data.data)) {
                         reviews = response.data.data;
                         console.log(`Found ${reviews.length} reviews in response.data.data`);
                     } else if (Array.isArray(response.data)) {
                         reviews = response.data;
                         console.log(`Found ${reviews.length} reviews in response.data (array)`);
+                    } else if (response.data.success && response.data.data && Array.isArray(response.data.data)) {
+                        // Handle structure: { success: true, data: [...] }
+                        reviews = response.data.data;
+                        console.log(`Found ${reviews.length} reviews in response.data.data (success structure)`);
                     } else {
                         console.warn('Unexpected response structure:', response.data);
                         // Try to extract data if it's in a nested property
@@ -3578,33 +3583,104 @@ async function loadAgentReviews() {
                         }
                     }
                 } else {
-                    console.warn('API request unsuccessful or returned no data:', response);
+                    console.warn('Agent reviews API request unsuccessful or returned no data:', response);
                 }
                 
-                // Special handling for our test data
-                const testReviewBookingId = "67f91ebc2f6d53d201874aaa";
+                // If primary endpoint failed, try the standard reviews endpoint
                 if (reviews.length === 0) {
-                    console.log('No reviews found, trying direct test query');
-                    // Manually try a direct fetch with the known booking ID
-                    const directResponse = await ipcRenderer.invoke('api-call', {
+                    console.log('No reviews found from primary endpoint, trying generic reviews endpoint');
+                    
+                    const genericResponse = await ipcRenderer.invoke('api-call', {
                         method: 'GET',
-                        url: `/api/reviews?bookingId=${testReviewBookingId}`
+                        url: `/api/reviews?agentId=${agentId}&nocache=${timestamp}`,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        }
                     });
                     
-                    console.log('Direct query response:', JSON.stringify(directResponse));
+                    console.log('Generic reviews endpoint response:', JSON.stringify(genericResponse));
                     
-                    if (directResponse.ok && directResponse.data) {
-                        if (directResponse.data.data && Array.isArray(directResponse.data.data)) {
-                            reviews = directResponse.data.data;
-                        } else if (Array.isArray(directResponse.data)) {
-                            reviews = directResponse.data;
+                    if (genericResponse.ok && genericResponse.data) {
+                        if (genericResponse.data.data && Array.isArray(genericResponse.data.data)) {
+                            reviews = genericResponse.data.data;
+                            console.log(`Found ${reviews.length} reviews using generic endpoint data.data`);
+                        } else if (Array.isArray(genericResponse.data)) {
+                            reviews = genericResponse.data;
+                            console.log(`Found ${reviews.length} reviews using generic endpoint data array`);
                         }
-                        console.log(`Found ${reviews.length} reviews with direct booking ID query`);
                     }
                 }
+                
+                // As a last resort, try getting all reviews and filter client-side
+                if (reviews.length === 0) {
+                    console.log('No reviews found, trying to fetch all reviews and filter');
+                    
+                    const allReviewsResponse = await ipcRenderer.invoke('api-call', {
+                        method: 'GET',
+                        url: `/api/reviews?nocache=${timestamp}`,
+                        headers: {
+                            'Accept': 'application/json',
+                            'Cache-Control': 'no-cache'
+                        }
+                    });
+                    
+                    if (allReviewsResponse.ok && allReviewsResponse.data) {
+                        let allReviews = [];
+                        
+                        if (allReviewsResponse.data.data && Array.isArray(allReviewsResponse.data.data)) {
+                            allReviews = allReviewsResponse.data.data;
+                        } else if (Array.isArray(allReviewsResponse.data)) {
+                            allReviews = allReviewsResponse.data;
+                        }
+                        
+                        // Filter client-side for this agent
+                        if (allReviews.length > 0) {
+                            // Get all vehicles owned by this agent to match reviews
+                            const vehiclesResponse = await ipcRenderer.invoke('api-call', {
+                                method: 'GET',
+                                url: `/api/vehicles?agentId=${agentId}&nocache=${timestamp}`
+                            });
+                            
+                            let agentVehicleIds = [];
+                            if (vehiclesResponse.ok && vehiclesResponse.data) {
+                                if (Array.isArray(vehiclesResponse.data)) {
+                                    agentVehicleIds = vehiclesResponse.data.map(v => v._id);
+                                } else if (vehiclesResponse.data.data && Array.isArray(vehiclesResponse.data.data)) {
+                                    agentVehicleIds = vehiclesResponse.data.data.map(v => v._id);
+                                }
+                            }
+                            
+                            console.log(`Found ${agentVehicleIds.length} vehicles for this agent to match reviews against`);
+                            
+                            // Filter reviews by vehicleId or agentId
+                            reviews = allReviews.filter(review => {
+                                // Match by direct agentId if available
+                                if (review.agentId && (review.agentId === agentId || review.agentId._id === agentId)) {
+                                    return true;
+                                }
+                                
+                                // Match by vehicleId
+                                const reviewVehicleId = review.vehicleId?._id || review.vehicleId;
+                                return agentVehicleIds.includes(reviewVehicleId);
+                            });
+                            
+                            console.log(`Found ${reviews.length} reviews for this agent after client-side filtering`);
+                        }
+                    }
+                }
+                
             } catch (error) {
                 console.error('Error fetching reviews through API:', error);
-                alert(`Error loading reviews: ${error.message}`);
+                if (reviewsContainer) {
+                    reviewsContainer.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-exclamation-triangle empty-icon"></i>
+                            <p>Error loading reviews: ${error.message}</p>
+                        </div>
+                    `;
+                }
+                return;
             }
         } else {
             console.warn('IPC renderer not available, cannot load reviews');
